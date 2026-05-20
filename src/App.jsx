@@ -384,9 +384,8 @@ export default function App(){
           const idx=f.findIndex(x=>x.id===pts[3]);
           // pts[4] = optional linkId for custom label
           if(pts[4]){
-            const allLinks=(await sGet("cg360_customlinks"))||{};
-            const orgLinks=(allLinks[pts[1]])||[];
-            const found=orgLinks.find(l=>l.id===pts[4]);
+            const orgLinks = await loadCustomLinks2(pts[1]);
+            const found = orgLinks.find(l=>l.id===pts[4]);
             if(found) setUrlCustomLabel(found.label);
           }
           if(idx>=0){setFfi(idx);setScreen("lgpd");}else setScreen("404");}
@@ -483,12 +482,14 @@ export default function App(){
   async function createOrg(){
     if(!nOrg.name.trim()){setNOrgE("Nome obrigatório");return;}
     if(!nOrg.adminPassword.trim()){setNOrgE("Senha obrigatória");return;}
-    const id=slugify(nOrg.name)+"-"+genId(6);
+    // Use custom slug if provided, else derive from name (max 12 chars)
+    const baseSlug = nOrg.slug ? slugify(nOrg.slug) : slugify(nOrg.name).slice(0,12);
+    const id=baseSlug+"-"+genId(4);
     const o={id,name:san(nOrg.name),adminPassword:nOrg.adminPassword,primaryColor:nOrg.primaryColor,logoUrl:nOrg.logoUrl,createdAt:new Date().toISOString(),activeCiclo:CICLOS[0]};
     const ok = await upsertOrg(o);
     if(!ok){setNOrgE("Erro ao salvar. Verifique a conexão.");return;}
     const u={...orgs,[id]:o};setOrgs(u);
-    setNOrg({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:""});setNOrgE("");
+    setNOrg({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:"",slug:""});setNOrgE("");
   }
   async function delOrg(id){
     if(!confirm("Remover esta organização? Todos os dados serão perdidos."))return;
@@ -587,8 +588,9 @@ export default function App(){
         <div style={{...card,marginBottom:24}}>
           <h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>➕ Nova Organização</h3>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-            <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label><input value={nOrg.name} onChange={e=>setNOrg(p=>({...p,name:e.target.value}))} style={inp} placeholder="Ex: Sepal"/></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label><input value={nOrg.name} onChange={e=>setNOrg(p=>({...p,name:e.target.value}))} style={inp} placeholder="Ex: Sepal — Servindo aos que Servem"/></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA DO ADMIN *</label><input type="password" value={nOrg.adminPassword} onChange={e=>setNOrg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Senha"/></div>
+            <div style={{gridColumn:"1 / -1"}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SLUG DO LINK <span style={{fontWeight:400,color:"#94a3b8"}}>(opcional — define a parte amigável da URL, ex: "sepal")</span></label><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>sepal360.vercel.app/#/fill/</span><input value={nOrg.slug||""} onChange={e=>setNOrg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>COR PRINCIPAL</label><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{width:44,height:38,borderRadius:8,border:"2px solid #dbeafe",cursor:"pointer",padding:2}}/><input value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{...inp,flex:1}}/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label><LogoUploader value={nOrg.logoUrl} onChange={url=>setNOrg(p=>({...p,logoUrl:url}))} color={nOrg.primaryColor}/></div>
           </div>
