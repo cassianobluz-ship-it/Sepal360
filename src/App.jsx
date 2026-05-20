@@ -340,7 +340,12 @@ async function marcarAtribuicaoConcluida(atribId) {
 
 async function loadOrgBySlug(slug) {
   try {
-    const rows = await sbFetch(`organizations?slug=eq.${slug}&select=*&limit=1`);
+    // Try exact slug match first
+    let rows = await sbFetch(`organizations?slug=eq.${encodeURIComponent(slug)}&select=*&limit=1`);
+    // Fallback: try matching by ID prefix (for orgs without slug set yet)
+    if(!rows || rows.length === 0) {
+      rows = await sbFetch(`organizations?id=like.${encodeURIComponent(slug)}*&select=*&limit=1`);
+    }
     if (rows && rows.length > 0) {
       const r = rows[0];
       return {
@@ -356,7 +361,7 @@ async function loadOrgBySlug(slug) {
       };
     }
     return null;
-  } catch(e) { return null; }
+  } catch(e) { console.error("loadOrgBySlug:", e); return null; }
 }
 
 function simpleHash(str) {
@@ -1101,7 +1106,7 @@ export default function App(){
               <span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>avalie360.vercel.app/</span>
               <input value={cfg.slug||""} onChange={e=>setCfg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/>
             </div>
-            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login da organização: <strong>avalie360.vercel.app/{cfg.slug||"slug"}/login</strong></p>
+            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login: <strong>{cfg.baseUrl||"avalie360.vercel.app"}/{cfg.slug||"slug"}/login</strong></p>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label>
@@ -1533,7 +1538,7 @@ export default function App(){
         </div>
         <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
-            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>avalie360.vercel.app/{org.slug||"slug"}/login</strong>
+            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
           </div>
 
           {/* Add user */}
