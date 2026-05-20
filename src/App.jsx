@@ -12,7 +12,7 @@ const DEFAULT_SCALE_LABELS = {
 const SC = {0:"#94a3b8",1:"#ef4444",2:"#f97316",3:"#eab308",4:"#22c55e",5:"#10b981"};
 // SCALE is built dynamically from org settings — see getScale() in App
 const CICLOS = ["2025 - 1º Semestre","2025 - 2º Semestre","2026 - 1º Semestre","2026 - 2º Semestre","2027 - 1º Semestre","2027 - 2º Semestre"];
-const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal identificável é coletado. Os dados são utilizados exclusivamente para fins de desenvolvimento organizacional interno, conforme a LGPD (Lei nº 13.709/2018). Você pode interromper o preenchimento a qualquer momento.";
+const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal identificável é coletado. Os administradores do sistema visualizam apenas resultados agregados, sem identificação de quem respondeu. Os dados são utilizados exclusivamente para fins de desenvolvimento organizacional interno, conforme a LGPD (Lei nº 13.709/2018). Você pode interromper o preenchimento a qualquer momento.";
 
 const DEFAULT_FORMS = [
   { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
@@ -137,6 +137,7 @@ async function upsertOrg(org) {
         base_url: org.baseUrl || "",
         active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
         scale_labels: org.scaleLabels || {},
+        slug: org.slug || "",
         created_at: org.createdAt || new Date().toISOString(),
       }),
     });
@@ -261,6 +262,110 @@ async function deleteAvaliado(id) {
     });
     return true;
   } catch(e) { return false; }
+}
+
+// ─── USUARIOS & ATRIBUICOES ──────────────────────────────────────────
+async function loadUsuarios(orgId) {
+  try {
+    const rows = await sbFetch(`usuarios?org_id=eq.${orgId}&ativo=eq.true&select=*&order=nome.asc`);
+    return rows || [];
+  } catch(e) { return []; }
+}
+
+async function saveUsuario(u) {
+  try {
+    await sbFetch("usuarios", {
+      method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+      body: JSON.stringify(u),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function deleteUsuario(id) {
+  try {
+    await sbFetch(`usuarios?id=eq.${id}`, {
+      method: "PATCH", prefer: "return=minimal",
+      body: JSON.stringify({ ativo: false }),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function loginUsuario(orgId, email, senha) {
+  try {
+    const hash = simpleHash(senha);
+    const rows = await sbFetch(`usuarios?org_id=eq.${orgId}&email=eq.${encodeURIComponent(email)}&ativo=eq.true&select=*&limit=1`);
+    if (!rows || rows.length === 0) return null;
+    if (rows[0].senha_hash !== hash) return null;
+    return rows[0];
+  } catch(e) { return null; }
+}
+
+async function loadAtribuicoes(usuarioId, ciclo) {
+  try {
+    const rows = await sbFetch(`atribuicoes?usuario_id=eq.${usuarioId}&ciclo=eq.${encodeURIComponent(ciclo)}&select=*`);
+    return rows || [];
+  } catch(e) { return []; }
+}
+
+async function saveAtribuicao(a) {
+  try {
+    await sbFetch("atribuicoes", {
+      method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+      body: JSON.stringify(a),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function deleteAtribuicoesByUsuario(usuarioId, ciclo) {
+  try {
+    await sbFetch(`atribuicoes?usuario_id=eq.${usuarioId}&ciclo=eq.${encodeURIComponent(ciclo)}`, {
+      method: "DELETE", prefer: "",
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function marcarAtribuicaoConcluida(atribId) {
+  try {
+    await sbFetch(`atribuicoes?id=eq.${atribId}`, {
+      method: "PATCH", prefer: "return=minimal",
+      body: JSON.stringify({ concluida: true }),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+async function loadOrgBySlug(slug) {
+  try {
+    const rows = await sbFetch(`organizations?slug=eq.${slug}&select=*&limit=1`);
+    if (rows && rows.length > 0) {
+      const r = rows[0];
+      return {
+        id: r.id, name: r.name,
+        adminPassword: r.admin_password,
+        primaryColor: r.primary_color,
+        logoUrl: r.logo_url,
+        baseUrl: r.base_url,
+        activeCiclo: r.active_ciclo,
+        scaleLabels: r.scale_labels,
+        slug: r.slug,
+        createdAt: r.created_at,
+      };
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+function simpleHash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h) ^ str.charCodeAt(i);
+    h = h >>> 0;
+  }
+  return h.toString(16);
 }
 
 async function saveCustomLinks2(orgId, links) {
@@ -393,6 +498,64 @@ function ScBar({label,score}){
 }
 
 // ─── APP ──────────────────────────────────────────────────────────────
+function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}){
+  const [ats, setAts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    loadAtribuicoes(usuario.id, ciclo).then(r=>{ setAts(r); setLoading(false); });
+  },[usuario.id, ciclo]);
+
+  async function toggle(formId, avaliadoId, avaliadoNome){
+    const exists = ats.find(a=>a.form_id===formId&&a.avaliado_id===avaliadoId);
+    if(exists){
+      await sbFetch(`atribuicoes?id=eq.${exists.id}`,{method:"DELETE",prefer:""});
+      setAts(p=>p.filter(a=>a.id!==exists.id));
+    } else {
+      const na={id:genId(10),org_id:org.id,usuario_id:usuario.id,ciclo,form_id:formId,avaliado_id:avaliadoId||"",avaliado_nome:avaliadoNome||"",concluida:false,created_at:new Date().toISOString()};
+      await saveAtribuicao(na);
+      setAts(p=>[...p,na]);
+    }
+  }
+
+  if(loading) return <div style={{padding:16,color:"#94a3b8",fontSize:12}}>Carregando...</div>;
+
+  return(
+    <div style={{background:"#f8faff",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #dbeafe"}}>
+      <p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Avaliações de {usuario.nome}</p>
+      {forms.map(f=>{
+        const needsAvaliado = ["liderados","lideranca_direta","pares","pastoral"].includes(f.id);
+        if(needsAvaliado && avaliados.length>0){
+          return(
+            <div key={f.id} style={{marginBottom:12}}>
+              <p style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:6}}>{f.icon} {f.title}</p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                {avaliados.map(av=>{
+                  const checked = !!ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id);
+                  return(
+                    <label key={av.id} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",background:checked?"#eff6ff":"#fff",border:`2px solid ${checked?pc:"#e2e8f0"}`,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:checked?700:400,color:checked?pc:"#64748b"}}>
+                      <input type="checkbox" checked={checked} onChange={()=>toggle(f.id,av.id,av.nome)} style={{cursor:"pointer"}}/>
+                      {av.nome}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        } else {
+          const checked = !!ats.find(a=>a.form_id===f.id&&a.avaliado_id==="");
+          return(
+            <label key={f.id} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",marginBottom:8,background:checked?"#eff6ff":"#fff",border:`2px solid ${checked?pc:"#e2e8f0"}`,borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:checked?700:400,color:checked?pc:"#64748b"}}>
+              <input type="checkbox" checked={checked} onChange={()=>toggle(f.id,"","")} style={{cursor:"pointer"}}/>
+              {f.icon} {f.title}
+            </label>
+          );
+        }
+      })}
+    </div>
+  );
+}
+
 export default function App(){
   const [screen,setScreen]=useState("loading");
   const [orgs,setOrgs]=useState({});
@@ -417,14 +580,57 @@ export default function App(){
   const [avaliados,setAvaliados]=useState([]); // list of avaliados for current org
   const [showAvaliados,setShowAvaliados]=useState(false); // show avaliados management
   const [newAvaliado,setNewAvaliado]=useState({nome:"",funcao:""});
+  // Login por pessoa
+  const [usuarioLogado,setUsuarioLogado]=useState(null);
+  const [atribuicoes,setAtribuicoes]=useState([]);
+  const [atribucaoAtual,setAtribucaoAtual]=useState(null);
+  const [usuarios,setUsuarios]=useState([]);
+  const [newUsuario,setNewUsuario]=useState({nome:"",email:"",senha:""});
+  const [loginEmail,setLoginEmail]=useState("");
+  const [loginSenha,setLoginSenha]=useState("");
+  const [loginErr,setLoginErr]=useState("");
+  const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
 
   useEffect(()=>{
     async function init(){
       const ao=await loadOrgs();setOrgs(ao);
+      // Clean URL routing: /orgSlug/ciclo/formId/avaliadoId
+      const pathParts = window.location.pathname.replace(/^\//, "").split("/").filter(Boolean);
+
+      // Handle login URL: /sepal/login
+      if(pathParts.length >= 2 && pathParts[1] === "login") {
+        const orgData = await loadOrgBySlug(pathParts[0]);
+        if(orgData) { setOrg(orgData); setScreen("user_login"); return; }
+      }
+
+      // Handle clean URL: /sepal/2025-s1/pares/cassiano-luz
+      if(pathParts.length >= 3 && ![""].includes(pathParts[0])) {
+        const orgData = await loadOrgBySlug(pathParts[0]);
+        if(orgData) {
+          setOrg(orgData);
+          const f = await loadForms(orgData.id);
+          setForms(f);
+          setScaleLabels(orgData.scaleLabels || DEFAULT_SCALE_LABELS);
+          const cicloRaw = pathParts[1] || "";
+          const shortMatch = cicloRaw.match(/^(\d{4})-s([12])$/);
+          let cDecoded;
+          if(shortMatch){ const sem=shortMatch[2]==="1"?"1º":"2º"; cDecoded=`${shortMatch[1]} - ${sem} Semestre`; }
+          else { cDecoded = decodeURIComponent(cicloRaw).replace(/-/g," "); }
+          setCiclo(cDecoded);
+          const idx2 = f.findIndex(x=>x.id===pathParts[2]);
+          if(pathParts[3]) {
+            const avs = await loadAvaliados(orgData.id);
+            const found = avs.find(a=>a.id===pathParts[3]);
+            if(found){ setUrlAvaliadoNome(found.nome); setUrlAvaliadoId(found.id); }
+          }
+          if(idx2>=0){ setFfi(idx2); setScreen("lgpd"); return; }
+        }
+      }
+
       const h=window.location.hash||"";
-      const pts=h.replace(/^#\//,"").split("/");
-      if(pts[0]==="fill"&&pts[1]&&pts[2]&&pts[3]){
+      const pts=h.replace(/^#\//, "").split("/");
+      if(pts[0]==="fill"&&pts[1]&&pts[2]&&pts[3]){[2]&&pts[3]){
         const o=ao[pts[1]];
         if(o){
           setOrg(o);const f=await loadForms(pts[1]);setForms(f);
@@ -592,13 +798,27 @@ export default function App(){
     const u={...orgs};delete u[id];setOrgs(u);
   }
   async function saveCfg(){
-    const updated={...cfg,scaleLabels:scaleLabels};
+    const updated={...cfg,scaleLabels:scaleLabels,slug:cfg.slug||""};
     const ok = await upsertOrg(updated);
     if(!ok){alert("Erro ao salvar configurações.");return;}
     const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);setCfg(updated);
     alert("Configurações salvas!");
   }
   async function saveFormsBtn(){await saveForms2(org.id,forms);alert("Formulários salvos!");}
+  async function handleUserLogin(){
+    setLoginErr("");
+    if(!loginEmail.trim()||!loginSenha.trim()){setLoginErr("Preencha email e senha.");return;}
+    const u = await loginUsuario(org.id, loginEmail.trim(), loginSenha);
+    if(!u){setLoginErr("Email ou senha incorretos.");return;}
+    setUsuarioLogado(u);
+    const f = await loadForms(org.id);
+    setForms(f);
+    setScaleLabels(org.scaleLabels||DEFAULT_SCALE_LABELS);
+    const ats = await loadAtribuicoes(u.id, org.activeCiclo||CICLOS[0]);
+    setAtribuicoes(ats);
+    setScreen("user_dash");
+  }
+
   async function submitForm(){
     setSaving(true);
     await saveResp(org.id,{
@@ -609,7 +829,13 @@ export default function App(){
       avaliadoId:urlAvaliadoId||"",
       avaliadoNome:urlAvaliadoNome||"",
     });
-    setSaving(false);setScreen("result");
+    // Mark atribuição as done if came from user dashboard
+    if(atribucaoAtual){
+      await marcarAtribuicaoConcluida(atribucaoAtual.id);
+      setAtribuicoes(p=>p.map(a=>a.id===atribucaoAtual.id?{...a,concluida:true}:a));
+      setAtribucaoAtual(null);
+    }
+    setSaving(false);setScreen(usuarioLogado?"user_dash":"result");
   }
   function updQ(fi,bi,qi,v){const f=clone(forms);f[fi].blocos[bi].perguntas[qi]=san(v);setForms(f);}
   function delQ(fi,bi,qi){const f=clone(forms);f[fi].blocos[bi].perguntas.splice(qi,1);setForms(f);}
@@ -805,6 +1031,7 @@ export default function App(){
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <button onClick={()=>setScreen("editor")} style={{...hBtn,background:"#f59e0b",fontWeight:700}}>✏️ Formulários</button>
             <button onClick={()=>setScreen("avaliados")} style={{...hBtn,background:"#8b5cf6",fontWeight:700}}>👥 Avaliados</button>
+            <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{...hBtn,background:"#0891b2",fontWeight:700}}>🔑 Usuários</button>
             <button onClick={()=>setScreen("settings")} style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>⚙️ Config</button>
             <button onClick={()=>{setScreen("home");setOrg(null);}} style={{...hBtn,background:"rgba(255,255,255,0.15)"}}>Sair</button>
           </div>
@@ -868,6 +1095,14 @@ export default function App(){
         <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>Identidade da organização</h3>
           <div style={{marginBottom:14}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME</label><input value={cfg.name} onChange={e=>setCfg(p=>({...p,name:e.target.value}))} style={inp}/></div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SLUG <span style={{fontWeight:400,color:"#94a3b8"}}>(parte amigável da URL, ex: "sepal")</span></label>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>avalie360.vercel.app/</span>
+              <input value={cfg.slug||""} onChange={e=>setCfg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/>
+            </div>
+            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login da organização: <strong>avalie360.vercel.app/{cfg.slug||"slug"}/login</strong></p>
+          </div>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label>
             <LogoUploader value={cfg.logoUrl||""} onChange={url=>setCfg(p=>({...p,logoUrl:url}))} color={cfg.primaryColor||"#2563eb"}/>
@@ -1135,7 +1370,8 @@ export default function App(){
   if(screen==="avaliados"&&org){
     async function addAvaliado(){
       if(!newAvaliado.nome.trim()) return;
-      const av={id:genId(8),org_id:org.id,nome:san(newAvaliado.nome),funcao:san(newAvaliado.funcao),ativo:true,created_at:new Date().toISOString()};
+      const avSlug=slugify(newAvaliado.nome).slice(0,30)||genId(8);
+      const av={id:avSlug,org_id:org.id,nome:san(newAvaliado.nome),funcao:san(newAvaliado.funcao),ativo:true,created_at:new Date().toISOString()};
       await saveAvaliado(av);
       setAvaliados(p=>[...p,av]);
       setNewAvaliado({nome:"",funcao:""});
@@ -1193,6 +1429,167 @@ export default function App(){
                 </div>
               ))
             )}
+          </div>
+        </div>
+        <PoweredBy/>
+      </div>
+    );
+  }
+
+  // ── USER LOGIN ──
+  if(screen==="user_login"&&org) return(
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{...card,maxWidth:380,width:"100%",textAlign:"center"}}>
+        <OrgLogo org={org} size={64}/>
+        <h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{org.name}</h2>
+        <p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Entre com seu email e senha</p>
+        <input type="email" placeholder="Seu email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)}
+          style={{...inp,marginBottom:10}} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}/>
+        <input type="password" placeholder="Sua senha" value={loginSenha} onChange={e=>setLoginSenha(e.target.value)}
+          style={{...inp,border:`2px solid ${loginErr?"#ef4444":"#dbeafe"}`,marginBottom:6}}
+          onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}/>
+        {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8}}>{loginErr}</p>}
+        <button onClick={handleUserLogin} style={{...btn(org.primaryColor||"#2563eb"),width:"100%",marginTop:8}}>Entrar</button>
+        <p style={{fontSize:11,color:"#94a3b8",marginTop:16,lineHeight:1.6}}>
+          Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal.
+        </p>
+      </div>
+      <PoweredBy/>
+    </div>
+  );
+
+  // ── USER DASHBOARD (painel do avaliador) ──
+  if(screen==="user_dash"&&org&&usuarioLogado) return(
+    <div style={{...pg,padding:0}}>
+      <div style={{background:org.primaryColor||"#1e3a8a",color:"#fff",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <OrgLogo org={org} size={32}/>
+          <div>
+            <div style={{fontWeight:700,fontSize:14}}>Olá, {usuarioLogado.nome}!</div>
+            <div style={{fontSize:11,opacity:0.75}}>{org.name}</div>
+          </div>
+        </div>
+        <button onClick={()=>{setUsuarioLogado(null);setAtribuicoes([]);setScreen("user_login");}}
+          style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>Sair</button>
+      </div>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
+        <h2 style={{color:"#1e3a8a",fontSize:16,marginBottom:6}}>Suas avaliações</h2>
+        <p style={{fontSize:13,color:"#64748b",marginBottom:20}}>Ciclo: <strong>{org.activeCiclo||CICLOS[0]}</strong></p>
+        {atribuicoes.length===0?(
+          <div style={{...card,textAlign:"center",padding:40}}>
+            <div style={{fontSize:40,marginBottom:12}}>📋</div>
+            <p style={{color:"#64748b"}}>Nenhuma avaliação atribuída ainda.</p>
+            <p style={{color:"#94a3b8",fontSize:12,marginTop:8}}>Aguarde seu administrador configurar as avaliações.</p>
+          </div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {atribuicoes.map(at=>{
+              const formDef=forms.find(f=>f.id===at.form_id);
+              if(!formDef) return null;
+              return(
+                <div key={at.id} style={{...card,display:"flex",alignItems:"center",gap:14,padding:18,
+                  opacity:at.concluida?0.6:1,
+                  borderLeft:`4px solid ${at.concluida?"#10b981":org.primaryColor||"#2563eb"}`}}>
+                  <span style={{fontSize:24}}>{formDef.icon}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{formDef.title}</div>
+                    {at.avaliado_nome&&<div style={{fontSize:12,color:"#64748b",marginTop:2}}>👤 {at.avaliado_nome}</div>}
+                    {at.concluida&&<div style={{fontSize:11,color:"#10b981",marginTop:2}}>✓ Concluída</div>}
+                  </div>
+                  {!at.concluida&&(
+                    <button onClick={()=>{
+                      const idx=forms.findIndex(f=>f.id===at.form_id);
+                      setFfi(idx);setFbi(0);setAnswers({});setOpenAns({});
+                      setUrlAvaliadoNome(at.avaliado_nome||"");
+                      setUrlAvaliadoId(at.avaliado_id||"");
+                      setAtribucaoAtual(at);
+                      setLgpd(false);
+                      setScreen("lgpd");
+                    }} style={{...btn(org.primaryColor||"#2563eb"),padding:"8px 16px",fontSize:12}}>
+                      Responder →
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{marginTop:24,padding:"12px 16px",background:"#f0fdf4",borderRadius:12,border:"1px solid #bbf7d0",fontSize:11,color:"#166534"}}>
+          🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal. Em conformidade com a LGPD.
+        </div>
+      </div>
+      <PoweredBy/>
+    </div>
+  );
+
+  // ── USUARIOS MANAGEMENT ──
+  if(screen==="usuarios"&&org){
+    const pc2=org.primaryColor||"#2563eb";
+    return(
+      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        <div style={{...hdr(pc2),position:"sticky",top:0,zIndex:20}}>
+          <div><div style={{fontWeight:800,fontSize:15}}>🔑 Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre os avaliadores e configure suas avaliações</div></div>
+          <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+        </div>
+        <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
+          <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
+            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>avalie360.vercel.app/{org.slug||"slug"}/login</strong>
+          </div>
+
+          {/* Add user */}
+          <div style={{...card,marginBottom:20}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>➕ Novo usuário</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label>
+                <input value={newUsuario.nome} onChange={e=>setNewUsuario(p=>({...p,nome:e.target.value}))} style={inp} placeholder="Nome completo"/></div>
+              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>EMAIL *</label>
+                <input type="email" value={newUsuario.email} onChange={e=>setNewUsuario(p=>({...p,email:e.target.value}))} style={inp} placeholder="email@org.com"/></div>
+              <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA *</label>
+                <input type="password" value={newUsuario.senha} onChange={e=>setNewUsuario(p=>({...p,senha:e.target.value}))} style={inp} placeholder="Senha inicial"/></div>
+            </div>
+            <button onClick={async()=>{
+              if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()) return;
+              const u={id:genId(10),org_id:org.id,nome:san(newUsuario.nome),email:newUsuario.email.toLowerCase().trim(),senha_hash:simpleHash(newUsuario.senha),ativo:true,created_at:new Date().toISOString()};
+              await saveUsuario(u);
+              setUsuarios(p=>[...p,u]);
+              setNewUsuario({nome:"",email:"",senha:""});
+            }} style={{...btn("#0891b2")}}>➕ Adicionar usuário</button>
+          </div>
+
+          {/* Users list */}
+          <div style={{...card}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>👥 Usuários cadastrados ({usuarios.length})</h3>
+            {usuarios.length===0?<p style={{color:"#94a3b8",textAlign:"center",padding:"24px 0",fontSize:13}}>Nenhum usuário cadastrado.</p>:
+              usuarios.map(u=>(
+                <div key={u.id}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #f1f5f9",flexWrap:"wrap"}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:pc2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",flexShrink:0}}>
+                      {u.nome.slice(0,2).toUpperCase()}
+                    </div>
+                    <div style={{flex:1,minWidth:120}}>
+                      <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{u.nome}</div>
+                      <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}</div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
+                        style={{padding:"5px 10px",borderRadius:8,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>
+                        📋 Avaliações
+                      </button>
+                      <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
+                        style={{padding:"5px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
+                    </div>
+                  </div>
+                  {/* Atribuições inline */}
+                  {showAtribuicoes===u.id&&(
+                    <AtribuicoesEditor
+                      usuario={u} org={org} forms={forms} avaliados={avaliados}
+                      ciclo={org.activeCiclo||CICLOS[0]}
+                      inp={inp} btn={btn} pc={pc2}
+                    />
+                  )}
+                </div>
+              ))
+            }
           </div>
         </div>
         <PoweredBy/>
