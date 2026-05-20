@@ -80,31 +80,155 @@ const DEFAULT_FORMS = [
     ]},
 ];
 
-// ─── STORAGE ─────────────────────────────────────────────────────────
-const mem = {};
-async function sGet(k){
-  try{
-    let r;
-    try{ if(window.storage){ r=await window.storage.get(k); return r?JSON.parse(r.value):null; }}catch{}
-    try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch{}
-    return mem[k]||null;
-  }catch{return null;}
+// ─── SUPABASE CLIENT ─────────────────────────────────────────────────
+const SB_URL = "https://tegktsjlpjvsbdrrugpp.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZ2t0c2pscGp2c2JkcnJ1Z3BwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzI5NzAsImV4cCI6MjA5NDgwODk3MH0.Vh58dC61bYKkQJrsDFJBLrt9q3LGER50N0cb4iLzz5c";
+
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    headers: {
+      "apikey": SB_KEY,
+      "Authorization": `Bearer ${SB_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": opts.prefer !== undefined ? opts.prefer : "return=representation",
+    },
+    method: opts.method || "GET",
+    body: opts.body || undefined,
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(`SB ${res.status}: ${t}`); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
-async function sSet(k,v){
-  const s=JSON.stringify(v);
-  try{if(window.storage){await window.storage.set(k,s);return;}}catch{}
-  try{localStorage.setItem(k,s);return;}catch{}
-  mem[k]=v;
+
+async function loadOrgs() {
+  try {
+    const rows = await sbFetch("organizations?select=*");
+    const orgs = {};
+    (rows || []).forEach(r => {
+      orgs[r.id] = {
+        id: r.id, name: r.name,
+        adminPassword: r.admin_password,
+        primaryColor: r.primary_color,
+        logoUrl: r.logo_url,
+        baseUrl: r.base_url,
+        activeCiclo: r.active_ciclo,
+        scaleLabels: r.scale_labels,
+        createdAt: r.created_at,
+      };
+    });
+    return orgs;
+  } catch(e) { console.error("loadOrgs:", e); return {}; }
 }
-async function loadOrgs(){return(await sGet(STORAGE_ORGS))||{};}
-async function saveOrgs(o){await sSet(STORAGE_ORGS,o);}
-async function loadResps(id){const a=(await sGet(STORAGE_RESPOSTAS))||{};return a[id]||[];}
-async function saveResp(id,e){const a=(await sGet(STORAGE_RESPOSTAS))||{};if(!a[id])a[id]=[];a[id].push(e);await sSet(STORAGE_RESPOSTAS,a);}
-async function loadForms(id){const a=(await sGet(STORAGE_FORMS))||{};return a[id]||JSON.parse(JSON.stringify(DEFAULT_FORMS));}
-async function saveForms2(id,f){const a=(await sGet(STORAGE_FORMS))||{};a[id]=f;await sSet(STORAGE_FORMS,a);}
-const STORAGE_LINKS="cg360_customlinks";
-async function loadCustomLinks2(id){const a=(await sGet(STORAGE_LINKS))||{};return a[id]||[];}
-async function saveCustomLinks2(id,links){const a=(await sGet(STORAGE_LINKS))||{};a[id]=links;await sSet(STORAGE_LINKS,a);}
+
+async function saveOrgs(orgs) {
+  // no-op: individual ops use upsertOrg/deleteOrgFromDB
+}
+
+async function upsertOrg(org) {
+  try {
+    await sbFetch("organizations", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates,return=minimal",
+      body: JSON.stringify({
+        id: org.id, name: org.name,
+        admin_password: org.adminPassword,
+        primary_color: org.primaryColor || "#2563eb",
+        logo_url: org.logoUrl || "",
+        base_url: org.baseUrl || "",
+        active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
+        scale_labels: org.scaleLabels || {},
+        created_at: org.createdAt || new Date().toISOString(),
+      }),
+    });
+    return true;
+  } catch(e) { console.error("upsertOrg:", e); return false; }
+}
+
+async function deleteOrgFromDB(orgId) {
+  try {
+    await sbFetch(`organizations?id=eq.${orgId}`, { method: "DELETE", prefer: "" });
+    return true;
+  } catch(e) { console.error("deleteOrg:", e); return false; }
+}
+
+async function loadResps(orgId) {
+  try {
+    const rows = await sbFetch(`responses?org_id=eq.${orgId}&select=*&order=submitted_at.desc`);
+    return (rows || []).map(r => ({
+      id: r.id, ciclo: r.ciclo,
+      formId: r.form_id, formTitle: r.form_title,
+      scores: r.scores, answers: r.answers,
+      openAns: r.open_answers, ts: new Date(r.submitted_at).getTime(),
+    }));
+  } catch(e) { console.error("loadResps:", e); return []; }
+}
+
+async function saveResp(orgId, entry) {
+  try {
+    await sbFetch("responses", {
+      method: "POST", prefer: "return=minimal",
+      body: JSON.stringify({
+        id: entry.id, org_id: orgId,
+        ciclo: entry.ciclo, form_id: entry.formId,
+        form_title: entry.formTitle, scores: entry.scores,
+        answers: entry.answers, open_answers: entry.openAns || {},
+      }),
+    });
+    return true;
+  } catch(e) { console.error("saveResp:", e); return false; }
+}
+
+async function loadForms(orgId) {
+  try {
+    const rows = await sbFetch(`org_forms?org_id=eq.${orgId}&select=forms_data&limit=1`);
+    if (rows && rows.length > 0) return rows[0].forms_data;
+    return JSON.parse(JSON.stringify(DEFAULT_FORMS));
+  } catch(e) { return JSON.parse(JSON.stringify(DEFAULT_FORMS)); }
+}
+
+async function saveForms2(orgId, forms) {
+  try {
+    const existing = await sbFetch(`org_forms?org_id=eq.${orgId}&select=id&limit=1`);
+    if (existing && existing.length > 0) {
+      await sbFetch(`org_forms?org_id=eq.${orgId}`, {
+        method: "PATCH", prefer: "return=minimal",
+        body: JSON.stringify({ forms_data: forms, updated_at: new Date().toISOString() }),
+      });
+    } else {
+      await sbFetch("org_forms", {
+        method: "POST", prefer: "return=minimal",
+        body: JSON.stringify({ org_id: orgId, forms_data: forms }),
+      });
+    }
+    return true;
+  } catch(e) { console.error("saveForms2:", e); return false; }
+}
+
+async function loadCustomLinks2(orgId) {
+  try {
+    const rows = await sbFetch(`org_custom_links?org_id=eq.${orgId}&select=links_data&limit=1`);
+    if (rows && rows.length > 0) return rows[0].links_data;
+    return [];
+  } catch(e) { return []; }
+}
+
+async function saveCustomLinks2(orgId, links) {
+  try {
+    const existing = await sbFetch(`org_custom_links?org_id=eq.${orgId}&select=id&limit=1`);
+    if (existing && existing.length > 0) {
+      await sbFetch(`org_custom_links?org_id=eq.${orgId}`, {
+        method: "PATCH", prefer: "return=minimal",
+        body: JSON.stringify({ links_data: links, updated_at: new Date().toISOString() }),
+      });
+    } else {
+      await sbFetch("org_custom_links", {
+        method: "POST", prefer: "return=minimal",
+        body: JSON.stringify({ org_id: orgId, links_data: links }),
+      });
+    }
+    return true;
+  } catch(e) { return false; }
+}
 
 // ─── UTILS ───────────────────────────────────────────────────────────
 function bAvg(b,r){const v=b.perguntas.map((_,i)=>r[`${b.id}_${i}`]||0).filter(x=>x>0);return v.length?v.reduce((a,x)=>a+x,0)/v.length:0;}
@@ -233,8 +357,10 @@ export default function App(){
   const [dfi,setDfi]=useState(0);const [dci,setDci]=useState(CICLOS[0]);const [repCopied,setRepCopied]=useState(false);
   const [efi,setEfi]=useState(0);const [ebi,setEbi]=useState(0);
   const [nOrg,setNOrg]=useState({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:""});const [nOrgE,setNOrgE]=useState("");
+  const [editingOrg,setEditingOrg]=useState(null); // org being edited in super admin
   const [cfg,setCfg]=useState(null);
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
+  const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
 
   useEffect(()=>{
@@ -247,9 +373,22 @@ export default function App(){
         if(o){
           setOrg(o);const f=await loadForms(pts[1]);setForms(f);
           setScaleLabels(o.scaleLabels||DEFAULT_SCALE_LABELS);
-          const cDecoded=decodeURIComponent(pts[2]).replace(/-/g," ");
+          // Decode ciclo slug: "2025-s1" -> "2025 - 1º Semestre", or legacy format
+          let cDecoded=decodeURIComponent(pts[2]).replace(/-/g," ");
+          if(pts[2].match(/\d{4}-s[12]/)){
+            const yr=pts[2].slice(0,4);
+            const sem=pts[2].slice(6)==="1"?"1º":"2º";
+            cDecoded=`${yr} - ${sem} Semestre`;
+          }
           setCiclo(cDecoded);
           const idx=f.findIndex(x=>x.id===pts[3]);
+          // pts[4] = optional linkId for custom label
+          if(pts[4]){
+            const allLinks=(await sGet("cg360_customlinks"))||{};
+            const orgLinks=(allLinks[pts[1]])||[];
+            const found=orgLinks.find(l=>l.id===pts[4]);
+            if(found) setUrlCustomLabel(found.label);
+          }
           if(idx>=0){setFfi(idx);setScreen("lgpd");}else setScreen("404");}
         else setScreen("404");
       }else if(pts[0]==="report"&&pts[1]){
@@ -277,15 +416,25 @@ export default function App(){
 
   function getLinks(){
     const base=getBaseUrl();
-    const cs=encodeURIComponent((org?.activeCiclo||CICLOS[0]).replace(/ /g,"-"));
-    // Build from customLinks first, fill gaps with default one per form
+    // Friendly ciclo slug: "2025 - 1º Semestre" -> "2025-s1"
+    const activeCiclo=org?.activeCiclo||CICLOS[0];
+    const cicloSlug=activeCiclo
+      .replace("1º Semestre","s1").replace("2º Semestre","s2")
+      .replace(/[^a-zA-Z0-9-]/g,"-").replace(/-+/g,"-").toLowerCase();
+    // Friendly org slug from org.slug or derived from name
+    const orgSlug=org?.slug||org?.id?.split("-").slice(0,2).join("-")||"org";
     const result=[];
     forms.forEach(f=>{
       const custom=customLinks.filter(l=>l.formId===f.id);
       if(custom.length>0){
-        custom.forEach(l=>result.push({title:l.label,icon:f.icon,formId:f.id,id:l.id,link:`${base}#/fill/${org?.id}/${cs}/${f.id}`,customLabel:l.label}));
+        // Custom links include linkId so we can show the right title
+        custom.forEach(l=>{
+          const link=`${base}#/fill/${org?.id}/${cicloSlug}/${f.id}/${l.id}`;
+          result.push({title:l.label,icon:f.icon,formId:f.id,id:l.id,link,customLabel:l.label});
+        });
       } else {
-        result.push({title:f.title,icon:f.icon,formId:f.id,id:f.id,link:`${base}#/fill/${org?.id}/${cs}/${f.id}`});
+        const link=`${base}#/fill/${org?.id}/${cicloSlug}/${f.id}`;
+        result.push({title:f.title,icon:f.icon,formId:f.id,id:f.id,link});
       }
     });
     return result;
@@ -309,7 +458,7 @@ export default function App(){
     if(!dData.length)return;
     const rowsH=bStats.map(b=>`<tr><td style="padding:10px;border-bottom:1px solid #e2e8f0">${b.fullName}</td><td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:${sColor(b.media)}">${b.media.toFixed(1)}/5</td><td style="padding:10px;border-bottom:1px solid #e2e8f0"><div style="background:#e2e8f0;border-radius:4px;height:10px;width:180px"><div style="width:${(b.media/5)*100}%;background:${sColor(b.media)};height:10px;border-radius:4px"></div></div></td></tr>`).join("");
     const absH=abList.map(t=>`<li style="margin-bottom:8px;color:#334155;line-height:1.6">${t}</li>`).join("");
-    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Dados 100% anônimos · LGPD conforme · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/5</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
+    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/5</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html;charset=utf-8;"}));
     a.download=`relatorio-${org?.name||"org"}-${dci.replace(/ /g,"-")}.html`;a.click();
   }
@@ -336,14 +485,21 @@ export default function App(){
     if(!nOrg.adminPassword.trim()){setNOrgE("Senha obrigatória");return;}
     const id=slugify(nOrg.name)+"-"+genId(6);
     const o={id,name:san(nOrg.name),adminPassword:nOrg.adminPassword,primaryColor:nOrg.primaryColor,logoUrl:nOrg.logoUrl,createdAt:new Date().toISOString(),activeCiclo:CICLOS[0]};
-    const u={...orgs,[id]:o};await saveOrgs(u);setOrgs(u);
+    const ok = await upsertOrg(o);
+    if(!ok){setNOrgE("Erro ao salvar. Verifique a conexão.");return;}
+    const u={...orgs,[id]:o};setOrgs(u);
     setNOrg({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:""});setNOrgE("");
   }
-  async function delOrg(id){if(!confirm("Remover esta organização?"))return;const u={...orgs};delete u[id];await saveOrgs(u);setOrgs(u);}
+  async function delOrg(id){
+    if(!confirm("Remover esta organização? Todos os dados serão perdidos."))return;
+    await deleteOrgFromDB(id);
+    const u={...orgs};delete u[id];setOrgs(u);
+  }
   async function saveCfg(){
     const updated={...cfg,scaleLabels:scaleLabels};
-    const u={...orgs,[org.id]:updated};
-    await saveOrgs(u);setOrgs(u);setOrg(updated);setCfg(updated);
+    const ok = await upsertOrg(updated);
+    if(!ok){alert("Erro ao salvar configurações.");return;}
+    const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);setCfg(updated);
     alert("Configurações salvas!");
   }
   async function saveFormsBtn(){await saveForms2(org.id,forms);alert("Formulários salvos!");}
@@ -443,10 +599,57 @@ export default function App(){
           <h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>🏢 Organizações cadastradas</h3>
           {Object.keys(orgs).length===0?<p style={{color:"#94a3b8",textAlign:"center",padding:"24px 0"}}>Nenhuma organização cadastrada.</p>:
             Object.values(orgs).map(o=>(
-              <div key={o.id} style={{display:"flex",alignItems:"center",gap:16,padding:"14px 0",borderBottom:"1px solid #f1f5f9"}}>
-                <OrgLogo org={o} size={44}/>
-                <div style={{flex:1}}><div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{o.name}</div><div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>ID: {o.id} · {new Date(o.createdAt).toLocaleDateString("pt-BR")}</div></div>
-                <button onClick={()=>delOrg(o.id)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:12,fontWeight:600}}>Remover</button>
+              <div key={o.id}>
+                {/* Row */}
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 0",borderBottom:editingOrg?.id===o.id?"none":"1px solid #f1f5f9",flexWrap:"wrap"}}>
+                  <OrgLogo org={o} size={44}/>
+                  <div style={{flex:1,minWidth:160}}>
+                    <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{o.name}</div>
+                    <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>ID: {o.id} · {new Date(o.createdAt).toLocaleDateString("pt-BR")}</div>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>setEditingOrg(editingOrg?.id===o.id?null:clone(o))}
+                      style={{padding:"6px 12px",borderRadius:8,border:"2px solid #dbeafe",background:editingOrg?.id===o.id?"#eff6ff":"#fff",color:"#2563eb",cursor:"pointer",fontSize:12,fontWeight:600}}>
+                      {editingOrg?.id===o.id?"✕ Fechar":"✏️ Editar"}
+                    </button>
+                    <button onClick={()=>delOrg(o.id)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:12,fontWeight:600}}>Remover</button>
+                  </div>
+                </div>
+                {/* Inline editor */}
+                {editingOrg?.id===o.id&&(
+                  <div style={{background:"#f8faff",borderRadius:14,padding:20,border:"1px solid #dbeafe",marginBottom:12}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME</label>
+                        <input value={editingOrg.name} onChange={e=>setEditingOrg(p=>({...p,name:e.target.value}))} style={inp}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOVA SENHA DO ADMIN</label>
+                        <input type="password" value={editingOrg.adminPassword||""} onChange={e=>setEditingOrg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Deixe em branco para manter"/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>COR PRINCIPAL</label>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <input type="color" value={editingOrg.primaryColor||"#2563eb"} onChange={e=>setEditingOrg(p=>({...p,primaryColor:e.target.value}))} style={{width:44,height:38,borderRadius:8,border:"2px solid #dbeafe",cursor:"pointer",padding:2}}/>
+                          <input value={editingOrg.primaryColor||"#2563eb"} onChange={e=>setEditingOrg(p=>({...p,primaryColor:e.target.value}))} style={{...inp,flex:1}}/>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label>
+                        <LogoUploader value={editingOrg.logoUrl||""} onChange={url=>setEditingOrg(p=>({...p,logoUrl:url}))} color={editingOrg.primaryColor||"#2563eb"}/>
+                        <input value={editingOrg.logoUrl||""} onChange={e=>setEditingOrg(p=>({...p,logoUrl:e.target.value}))} style={{...inp,marginTop:6,fontSize:11}} placeholder="Ou cole uma URL…"/>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:10}}>
+                      <button onClick={async()=>{
+                        await upsertOrg(editingOrg);
+                        const updated={...orgs,[editingOrg.id]:editingOrg};
+                        setOrgs(updated);setEditingOrg(null);
+                      }} style={{...btn("#16a34a")}}>💾 Salvar alterações</button>
+                      <button onClick={()=>setEditingOrg(null)} style={{...btnO}}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           }
@@ -510,7 +713,7 @@ export default function App(){
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <span style={{fontSize:12,color:"#94a3b8"}}>Ciclo ativo:</span>
-                <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const u={...orgs,[org.id]:{...org,activeCiclo:e.target.value}};await saveOrgs(u);setOrgs(u);setOrg({...org,activeCiclo:e.target.value});}} style={{padding:"6px 10px",borderRadius:8,border:"2px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>
+                <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"6px 10px",borderRadius:8,border:"2px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>
                   {CICLOS.map(c=><option key={c}>{c}</option>)}
                 </select>
               </div>
@@ -656,7 +859,7 @@ export default function App(){
     <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:480,width:"100%"}}>
         <div style={{...card,marginBottom:16}}>
-          <div style={{textAlign:"center",marginBottom:20}}><OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{fForm.title}</h2><p style={{color:"#64748b",fontSize:13}}>{org.name} · {ciclo}</p></div>
+          <div style={{textAlign:"center",marginBottom:20}}><OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{urlCustomLabel||fForm.title}</h2><p style={{color:"#64748b",fontSize:13}}>{org.name} · {ciclo}</p></div>
           <div style={{background:"#f0fdf4",borderRadius:12,padding:16,border:"1px solid #bbf7d0",marginBottom:20}}><p style={{fontSize:12,color:"#166534",lineHeight:1.8,margin:0}}>🔒 {LGPD}</p></div>
           <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:20}}>
             <input type="checkbox" checked={lgpd} onChange={e=>setLgpd(e.target.checked)} style={{marginTop:2,width:16,height:16,cursor:"pointer"}}/>
@@ -674,7 +877,7 @@ export default function App(){
       <div style={{position:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #dbeafe",padding:"10px 16px"}}>
         <div style={{maxWidth:600,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}><OrgLogo org={org} size={26}/><span style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{fForm.title}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}><OrgLogo org={org} size={26}/><span style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{urlCustomLabel||fForm.title}</span></div>
             <span style={{fontSize:11,color:"#94a3b8"}}>{fbi+1}/{fForm.blocos.length}</span>
           </div>
           <div style={{background:"#e2e8f0",borderRadius:8,height:6}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:pc,height:6,borderRadius:8,transition:"width 0.4s"}}/></div>
@@ -733,7 +936,7 @@ export default function App(){
           <div style={{fontSize:52,marginBottom:8}}>✅</div><OrgLogo org={org} size={56}/>
           <h2 style={{color:"#1e3a8a",margin:"14px 0 8px"}}>Avaliação enviada!</h2>
           <p style={{color:"#64748b",fontSize:13,lineHeight:1.7}}>Obrigado. Sua avaliação foi registrada de forma anônima e contribuirá para o desenvolvimento de {org.name}.</p>
-          <div style={{background:"#f0fdf4",borderRadius:10,padding:12,marginTop:16,fontSize:12,color:"#166534"}}>🔒 Respostas anônimas · LGPD conforme</div>
+          <div style={{background:"#f0fdf4",borderRadius:10,padding:12,marginTop:16,fontSize:12,color:"#166534"}}>Em conformidade com a LGPD</div>
           <div style={{marginTop:24,textAlign:"left"}}>
             <p style={{fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Sua pontuação por área</p>
             {fForm.blocos.map(b=><ScBar key={b.id} label={b.title} score={bAvg(b,answers)}/>)}
