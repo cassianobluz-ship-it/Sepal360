@@ -212,6 +212,25 @@ async function loadCustomLinks2(orgId) {
   } catch(e) { return []; }
 }
 
+async function saveSharedReport(orgId, data) {
+  try {
+    const id = Math.random().toString(36).slice(2,10);
+    await sbFetch("shared_reports", {
+      method: "POST", prefer: "return=minimal",
+      body: JSON.stringify({ id, org_id: orgId, data }),
+    });
+    return id;
+  } catch(e) { console.error("saveSharedReport:", e); return null; }
+}
+
+async function loadSharedReport(id) {
+  try {
+    const rows = await sbFetch(`shared_reports?id=eq.${id}&select=data&limit=1`);
+    if (rows && rows.length > 0) return rows[0].data;
+    return null;
+  } catch(e) { return null; }
+}
+
 async function saveCustomLinks2(orgId, links) {
   try {
     const existing = await sbFetch(`org_custom_links?org_id=eq.${orgId}&select=id&limit=1`);
@@ -373,12 +392,20 @@ export default function App(){
         if(o){
           setOrg(o);const f=await loadForms(pts[1]);setForms(f);
           setScaleLabels(o.scaleLabels||DEFAULT_SCALE_LABELS);
-          // Decode ciclo slug: "2025-s1" -> "2025 - 1º Semestre", or legacy format
-          let cDecoded=decodeURIComponent(pts[2]).replace(/-/g," ");
-          if(pts[2].match(/\d{4}-s[12]/)){
-            const yr=pts[2].slice(0,4);
-            const sem=pts[2].slice(6)==="1"?"1º":"2º";
-            cDecoded=`${yr} - ${sem} Semestre`;
+          // Decode ciclo from URL slug
+          // Handles: "2025-s1" -> "2025 - 1º Semestre"
+          // Also handles encoded versions like "2025---1%C2%BA-Semestre"
+          let rawCiclo = decodeURIComponent(pts[2]);
+          let cDecoded;
+          const shortMatch = rawCiclo.match(/^(\d{4})-s([12])$/);
+          if(shortMatch){
+            const sem = shortMatch[2]==="1"?"1º":"2º";
+            cDecoded = `${shortMatch[1]} - ${sem} Semestre`;
+          } else {
+            // Try to match against known CICLOS values
+            const cleaned = rawCiclo.replace(/-+/g," ").replace(/\s+/g," ").trim();
+            const found = CICLOS.find(ci=>ci.replace(/[^\w]/g,"").toLowerCase()===cleaned.replace(/[^\w]/g,"").toLowerCase());
+            cDecoded = found || cleaned;
           }
           setCiclo(cDecoded);
           const idx=f.findIndex(x=>x.id===pts[3]);
@@ -391,8 +418,18 @@ export default function App(){
           if(idx>=0){setFfi(idx);setScreen("lgpd");}else setScreen("404");}
         else setScreen("404");
       }else if(pts[0]==="report"&&pts[1]){
-        try{const d=JSON.parse(decodeURIComponent(atob(pts[1])));window._rd=d;setOrg({name:d.orgName,primaryColor:"#2563eb"});setScreen("pub_report");}
-        catch{setScreen("404");}
+        try{
+          // Try loading from Supabase first (short ID)
+          const d = await loadSharedReport(pts[1]);
+          if(d){ window._rd=d; setOrg({name:d.orgName,primaryColor:"#2563eb"}); setScreen("pub_report"); }
+          else {
+            // Fallback: try base64 decode (legacy links)
+            try{
+              const d2=JSON.parse(decodeURIComponent(atob(pts[1])));
+              window._rd=d2; setOrg({name:d2.orgName,primaryColor:"#2563eb"}); setScreen("pub_report");
+            }catch{ setScreen("404"); }
+          }
+        }catch{ setScreen("404"); }
       }else setScreen("home");
     }
     init();
@@ -419,7 +456,7 @@ export default function App(){
     const activeCiclo=org?.activeCiclo||CICLOS[0];
     const cicloSlug=activeCiclo
       .replace("1º Semestre","s1").replace("2º Semestre","s2")
-      .replace(/[^a-zA-Z0-9-]/g,"-").replace(/-+/g,"-").toLowerCase();
+      .replace(/[^a-zA-Z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"").toLowerCase();
     // Friendly org slug from org.slug or derived from name
     const orgSlug=org?.slug||org?.id?.split("-").slice(0,2).join("-")||"org";
     const result=[];
@@ -462,10 +499,14 @@ export default function App(){
     a.download=`relatorio-${org?.name||"org"}-${dci.replace(/ /g,"-")}.html`;a.click();
   }
 
-  function shareReport(){
+  async function shareReport(){
+    setRepCopied("saving");
     const data={orgName:org?.name,ciclo:dci,formTitle:dForm?.title,total:dData.length,bStats,mgeral,abList,at:new Date().toISOString()};
-    const enc=btoa(encodeURIComponent(JSON.stringify(data)));
-    copyText(`${window.location.href.split("#")[0]}#/report/${enc}`);
+    const id = await saveSharedReport(org?.id, data);
+    if(!id){ alert("Erro ao gerar link. Tente novamente."); setRepCopied(false); return; }
+    const base=getBaseUrl();
+    const link=`${base}#/report/${id}`;
+    copyText(link);
     setRepCopied(true);setTimeout(()=>setRepCopied(false),3000);
   }
 
@@ -735,7 +776,7 @@ export default function App(){
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{...btn("#475569"),padding:"10px 14px",fontSize:12}} title="Baixar dados CSV">⬇️ CSV</button>
               <button onClick={exportHTML} style={{...btn("#7c3aed"),padding:"10px 14px",fontSize:12}} title="Baixar relatório HTML">📄 Relatório</button>
-              <button onClick={shareReport} style={{...btn(repCopied?"#16a34a":"#0891b2"),padding:"10px 14px",fontSize:12}} title="Copiar link público do relatório">{repCopied?"✓ Link copiado!":"🔗 Compartilhar"}</button>
+              <button onClick={shareReport} style={{...btn(repCopied?"#16a34a":"#0891b2"),padding:"10px 14px",fontSize:12}} title="Copiar link público do relatório">{repCopied==="saving"?"⏳ Gerando...":repCopied?"✓ Link copiado!":"🔗 Compartilhar"}</button>
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:24}}>
