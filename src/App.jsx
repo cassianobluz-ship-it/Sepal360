@@ -517,7 +517,8 @@ function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}
       await sbFetch(`atribuicoes?id=eq.${exists.id}`,{method:"DELETE",prefer:""});
       setAts(p=>p.filter(a=>a.id!==exists.id));
     } else {
-      const na={id:genId(10),org_id:org.id,usuario_id:usuario.id,ciclo,form_id:formId,avaliado_id:avaliadoId||"",avaliado_nome:avaliadoNome||"",concluida:false,created_at:new Date().toISOString()};
+      const avObj = avaliados.find(a=>a.id===avaliadoId);
+      const na={id:genId(10),org_id:org.id,usuario_id:usuario.id,ciclo,form_id:formId,avaliado_id:avaliadoId||"",avaliado_nome:avaliadoNome||"",avaliado_funcao:avObj?.funcao||"",concluida:false,created_at:new Date().toISOString()};
       await saveAtribuicao(na);
       setAts(p=>[...p,na]);
     }
@@ -1497,8 +1498,16 @@ export default function App(){
                   borderLeft:`4px solid ${at.concluida?"#10b981":org.primaryColor||"#2563eb"}`}}>
                   <span style={{fontSize:24}}>{formDef.icon}</span>
                   <div style={{flex:1}}>
-                    <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{formDef.title}</div>
-                    {at.avaliado_nome&&<div style={{fontSize:12,color:"#64748b",marginTop:2}}>👤 {at.avaliado_nome}</div>}
+                    {at.avaliado_nome ? (
+                      <>
+                        <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>
+                          Avalie {at.avaliado_nome}{at.avaliado_funcao ? ` como ${at.avaliado_funcao}` : ""}
+                        </div>
+                        <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{formDef.title}</div>
+                      </>
+                    ) : (
+                      <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{formDef.title}</div>
+                    )}
                     {at.concluida&&<div style={{fontSize:11,color:"#10b981",marginTop:2}}>✓ Concluída</div>}
                   </div>
                   {!at.concluida&&(
