@@ -159,6 +159,8 @@ async function loadResps(orgId) {
       formId: r.form_id, formTitle: r.form_title,
       scores: r.scores, answers: r.answers,
       openAns: r.open_answers, ts: new Date(r.submitted_at).getTime(),
+      avaliadoId: r.avaliado_id || "",
+      avaliadoNome: r.avaliado_nome || "",
     }));
   } catch(e) { console.error("loadResps:", e); return []; }
 }
@@ -172,6 +174,8 @@ async function saveResp(orgId, entry) {
         ciclo: entry.ciclo, form_id: entry.formId,
         form_title: entry.formTitle, scores: entry.scores,
         answers: entry.answers, open_answers: entry.openAns || {},
+        avaliado_id: entry.avaliadoId || "",
+        avaliado_nome: entry.avaliadoNome || "",
       }),
     });
     return true;
@@ -229,6 +233,34 @@ async function loadSharedReport(id) {
     if (rows && rows.length > 0) return rows[0].data;
     return null;
   } catch(e) { return null; }
+}
+
+async function loadAvaliados(orgId) {
+  try {
+    const rows = await sbFetch(`avaliados?org_id=eq.${orgId}&ativo=eq.true&select=*&order=nome.asc`);
+    return rows || [];
+  } catch(e) { console.error("loadAvaliados:", e); return []; }
+}
+
+async function saveAvaliado(avaliado) {
+  try {
+    await sbFetch("avaliados", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates,return=minimal",
+      body: JSON.stringify(avaliado),
+    });
+    return true;
+  } catch(e) { console.error("saveAvaliado:", e); return false; }
+}
+
+async function deleteAvaliado(id) {
+  try {
+    await sbFetch(`avaliados?id=eq.${id}`, {
+      method: "PATCH", prefer: "return=minimal",
+      body: JSON.stringify({ ativo: false }),
+    });
+    return true;
+  } catch(e) { return false; }
 }
 
 async function saveCustomLinks2(orgId, links) {
@@ -380,6 +412,11 @@ export default function App(){
   const [cfg,setCfg]=useState(null);
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
   const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
+  const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
+  const [urlAvaliadoId,setUrlAvaliadoId]=useState(null); // avaliado id from URL
+  const [avaliados,setAvaliados]=useState([]); // list of avaliados for current org
+  const [showAvaliados,setShowAvaliados]=useState(false); // show avaliados management
+  const [newAvaliado,setNewAvaliado]=useState({nome:"",funcao:""});
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
 
   useEffect(()=>{
@@ -410,10 +447,16 @@ export default function App(){
           setCiclo(cDecoded);
           const idx=f.findIndex(x=>x.id===pts[3]);
           // pts[4] = optional linkId for custom label
+          // pts[5] = optional avaliadoId
           if(pts[4]){
             const orgLinks = await loadCustomLinks2(pts[1]);
             const found = orgLinks.find(l=>l.id===pts[4]);
             if(found) setUrlCustomLabel(found.label);
+          }
+          if(pts[5]){
+            const avs = await loadAvaliados(pts[1]);
+            const found = avs.find(a=>a.id===pts[5]);
+            if(found){ setUrlAvaliadoNome(found.nome); setUrlAvaliadoId(found.id); }
           }
           if(idx>=0){setFfi(idx);setScreen("lgpd");}else setScreen("404");}
         else setScreen("404");
@@ -437,7 +480,8 @@ export default function App(){
 
   const fForm=forms[ffi];const fBloc=fForm?.blocos[fbi];const isLast=fForm&&fbi===fForm.blocos.length-1;
   const dForm=forms[dfi];
-  const dData=resps.filter(r=>r.ciclo===dci&&r.formId===dForm?.id);
+  const [dAvaliado,setDAvaliado]=useState(""); // "" = todos
+  const dData=resps.filter(r=>r.ciclo===dci&&r.formId===dForm?.id&&(dAvaliado===""||r.avaliadoId===dAvaliado));
   const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0};}):[];
   const mgeral=bStats.length?(bStats.reduce((a,b)=>a+b.media,0)/bStats.length).toFixed(1):"—";
   const abList=[];dData.forEach(r=>Object.values(r.openAns||{}).forEach(v=>{if(v?.trim())abList.push(v.trim());}));
@@ -452,26 +496,35 @@ export default function App(){
 
   function getLinks(){
     const base=getBaseUrl();
-    // Friendly ciclo slug: "2025 - 1º Semestre" -> "2025-s1"
     const activeCiclo=org?.activeCiclo||CICLOS[0];
     const cicloSlug=activeCiclo
       .replace("1º Semestre","s1").replace("2º Semestre","s2")
       .replace(/[^a-zA-Z0-9-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"").toLowerCase();
-    // Friendly org slug from org.slug or derived from name
-    const orgSlug=org?.slug||org?.id?.split("-").slice(0,2).join("-")||"org";
     const result=[];
     forms.forEach(f=>{
       const custom=customLinks.filter(l=>l.formId===f.id);
-      if(custom.length>0){
-        // Custom links include linkId so we can show the right title
-        custom.forEach(l=>{
-          const link=`${base}#/fill/${org?.id}/${cicloSlug}/${f.id}/${l.id}`;
-          result.push({title:l.label,icon:f.icon,formId:f.id,id:l.id,link,customLabel:l.label});
-        });
-      } else {
-        const link=`${base}#/fill/${org?.id}/${cicloSlug}/${f.id}`;
-        result.push({title:f.title,icon:f.icon,formId:f.id,id:f.id,link});
-      }
+      const linkLabels = custom.length>0 ? custom : [{id:null, label:f.title}];
+      linkLabels.forEach(l=>{
+        // If avaliados exist for this form type, generate one link per avaliado
+        const needsAvaliado = ["liderados","lideranca_direta","pares","pastoral"].includes(f.id);
+        if(needsAvaliado && avaliados.length>0){
+          avaliados.forEach(av=>{
+            const linkId = l.id ? `/${l.id}` : "";
+            const link=`${base}#/fill/${org?.id}/${cicloSlug}/${f.id}${linkId}/${av.id}`;
+            result.push({
+              title:`${l.label} — ${av.nome}`,
+              icon:f.icon, formId:f.id,
+              id:`${l.id||f.id}-${av.id}`,
+              link,
+              avaliado:av,
+            });
+          });
+        } else {
+          const linkId = l.id ? `/${l.id}` : "";
+          const link=`${base}#/fill/${org?.id}/${cicloSlug}/${f.id}${linkId}`;
+          result.push({title:l.label,icon:f.icon,formId:f.id,id:l.id||f.id,link});
+        }
+      });
     });
     return result;
   }
@@ -517,7 +570,8 @@ export default function App(){
       const f=await loadForms(o.id);const r=await loadResps(o.id);
       const cl=await loadCustomLinks2(o.id);
       const sl=o.scaleLabels||DEFAULT_SCALE_LABELS;
-      setForms(f);setResps(r);setCfg(clone(o));setCustomLinks(cl);setScaleLabels(sl);setScreen("dash");
+      const av=await loadAvaliados(o.id);
+      setForms(f);setResps(r);setCfg(clone(o));setCustomLinks(cl);setScaleLabels(sl);setAvaliados(av);setScreen("dash");
     }else setOrgE(true);
   }
   async function createOrg(){
@@ -547,7 +601,14 @@ export default function App(){
   async function saveFormsBtn(){await saveForms2(org.id,forms);alert("Formulários salvos!");}
   async function submitForm(){
     setSaving(true);
-    await saveResp(org.id,{id:genId(16),ts:Date.now(),ciclo,formId:fForm.id,formTitle:fForm.title,scores:fForm.blocos.map(b=>({label:b.title,score:bAvg(b,answers)})),answers,openAns});
+    await saveResp(org.id,{
+      id:genId(16),ts:Date.now(),ciclo,
+      formId:fForm.id,formTitle:fForm.title,
+      scores:fForm.blocos.map(b=>({label:b.title,score:bAvg(b,answers)})),
+      answers,openAns,
+      avaliadoId:urlAvaliadoId||"",
+      avaliadoNome:urlAvaliadoNome||"",
+    });
     setSaving(false);setScreen("result");
   }
   function updQ(fi,bi,qi,v){const f=clone(forms);f[fi].blocos[bi].perguntas[qi]=san(v);setForms(f);}
@@ -743,6 +804,7 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={34}/><div><div style={{fontWeight:800,fontSize:15}}>{org.name} · Avaliação 360°</div><div style={{fontSize:11,opacity:0.75}}>Painel administrativo</div></div></div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <button onClick={()=>setScreen("editor")} style={{...hBtn,background:"#f59e0b",fontWeight:700}}>✏️ Formulários</button>
+            <button onClick={()=>setScreen("avaliados")} style={{...hBtn,background:"#8b5cf6",fontWeight:700}}>👥 Avaliados</button>
             <button onClick={()=>setScreen("settings")} style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>⚙️ Config</button>
             <button onClick={()=>{setScreen("home");setOrg(null);}} style={{...hBtn,background:"rgba(255,255,255,0.15)"}}>Sair</button>
           </div>
@@ -773,6 +835,7 @@ export default function App(){
           <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>CICLO</label><select value={dci} onChange={e=>setDci(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FORMULÁRIO</label><select value={dfi} onChange={e=>setDfi(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
+            <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>AVALIADO</label><select value={dAvaliado} onChange={e=>setDAvaliado(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button onClick={exportCSV} style={{...btn("#475569"),padding:"10px 14px",fontSize:12}} title="Baixar dados CSV">⬇️ CSV</button>
               <button onClick={exportHTML} style={{...btn("#7c3aed"),padding:"10px 14px",fontSize:12}} title="Baixar relatório HTML">📄 Relatório</button>
@@ -902,7 +965,9 @@ export default function App(){
     <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:480,width:"100%"}}>
         <div style={{...card,marginBottom:16}}>
-          <div style={{textAlign:"center",marginBottom:20}}><OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{urlCustomLabel||fForm.title}</h2><p style={{color:"#64748b",fontSize:13}}>{org.name} · {ciclo}</p></div>
+          <div style={{textAlign:"center",marginBottom:20}}><OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{urlCustomLabel||fForm.title}</h2>
+              {urlAvaliadoNome&&<div style={{background:pc+"22",borderRadius:10,padding:"6px 14px",display:"inline-block",fontSize:13,fontWeight:700,color:pc,marginBottom:4}}>👤 Avaliando: {urlAvaliadoNome}</div>}
+              <p style={{color:"#64748b",fontSize:13}}>{org.name} · {ciclo}</p></div>
           <div style={{background:"#f0fdf4",borderRadius:12,padding:16,border:"1px solid #bbf7d0",marginBottom:20}}><p style={{fontSize:12,color:"#166534",lineHeight:1.8,margin:0}}>🔒 {LGPD}</p></div>
           <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:20}}>
             <input type="checkbox" checked={lgpd} onChange={e=>setLgpd(e.target.checked)} style={{marginTop:2,width:16,height:16,cursor:"pointer"}}/>
@@ -920,7 +985,8 @@ export default function App(){
       <div style={{position:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #dbeafe",padding:"10px 16px"}}>
         <div style={{maxWidth:600,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}><OrgLogo org={org} size={26}/><span style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{urlCustomLabel||fForm.title}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}><OrgLogo org={org} size={26}/><span style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{urlCustomLabel||fForm.title}</span>
+            {urlAvaliadoNome&&<span style={{fontSize:11,color:pc,fontWeight:600,background:pc+"18",borderRadius:6,padding:"2px 8px"}}>👤 {urlAvaliadoNome}</span>}</div>
             <span style={{fontSize:11,color:"#94a3b8"}}>{fbi+1}/{fForm.blocos.length}</span>
           </div>
           <div style={{background:"#e2e8f0",borderRadius:8,height:6}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:pc,height:6,borderRadius:8,transition:"width 0.4s"}}/></div>
@@ -1061,6 +1127,75 @@ export default function App(){
             );
           })}
         </div>
+      </div>
+    );
+  }
+
+  // ── AVALIADOS SCREEN ──
+  if(screen==="avaliados"&&org){
+    async function addAvaliado(){
+      if(!newAvaliado.nome.trim()) return;
+      const av={id:genId(8),org_id:org.id,nome:san(newAvaliado.nome),funcao:san(newAvaliado.funcao),ativo:true,created_at:new Date().toISOString()};
+      await saveAvaliado(av);
+      setAvaliados(p=>[...p,av]);
+      setNewAvaliado({nome:"",funcao:""});
+    }
+    async function removeAvaliado(id){
+      if(!confirm("Remover este avaliado?")) return;
+      await deleteAvaliado(id);
+      setAvaliados(p=>p.filter(a=>a.id!==id));
+    }
+    return(
+      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
+          <div><div style={{fontWeight:800,fontSize:15}}>👥 Avaliados — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre as pessoas que serão avaliadas</div></div>
+          <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+        </div>
+        <div style={{maxWidth:700,margin:"0 auto",padding:"24px 16px 60px"}}>
+          <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
+            💡 Cadastre aqui as pessoas que serão avaliadas. O sistema vai gerar um link individual para cada uma delas em cada formulário.
+          </div>
+          {/* Add new */}
+          <div style={{...card,marginBottom:20}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>➕ Adicionar avaliado</h3>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label>
+                <input value={newAvaliado.nome} onChange={e=>setNewAvaliado(p=>({...p,nome:e.target.value}))}
+                  onKeyDown={e=>e.key==="Enter"&&addAvaliado()}
+                  style={inp} placeholder="Ex: Cassiano Luz"/>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FUNÇÃO</label>
+                <input value={newAvaliado.funcao} onChange={e=>setNewAvaliado(p=>({...p,funcao:e.target.value}))}
+                  onKeyDown={e=>e.key==="Enter"&&addAvaliado()}
+                  style={inp} placeholder="Ex: Diretor Executivo"/>
+              </div>
+            </div>
+            <button onClick={addAvaliado} style={{...btn("#8b5cf6")}}>➕ Adicionar</button>
+          </div>
+          {/* List */}
+          <div style={{...card}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>📋 Avaliados cadastrados ({avaliados.length})</h3>
+            {avaliados.length===0?(
+              <p style={{color:"#94a3b8",textAlign:"center",padding:"24px 0",fontSize:13}}>Nenhum avaliado cadastrado ainda.</p>
+            ):(
+              avaliados.map(av=>(
+                <div key={av.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 0",borderBottom:"1px solid #f1f5f9"}}>
+                  <div style={{width:40,height:40,borderRadius:10,background:pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff",flexShrink:0}}>
+                    {av.nome.slice(0,2).toUpperCase()}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{av.nome}</div>
+                    {av.funcao&&<div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{av.funcao}</div>}
+                  </div>
+                  <button onClick={()=>removeAvaliado(av.id)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:12,fontWeight:600}}>Remover</button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <PoweredBy/>
       </div>
     );
   }
