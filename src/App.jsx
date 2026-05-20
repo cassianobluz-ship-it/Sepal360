@@ -630,7 +630,7 @@ export default function App(){
 
       const h=window.location.hash||"";
       const pts=h.replace(/^#\//, "").split("/");
-      if(pts[0]==="fill"&&pts[1]&&pts[2]&&pts[3]){[2]&&pts[3]){
+      if(pts[0]==="fill"&&pts[1]&&pts[2]&&pts[3]){
         const o=ao[pts[1]];
         if(o){
           setOrg(o);const f=await loadForms(pts[1]);setForms(f);
