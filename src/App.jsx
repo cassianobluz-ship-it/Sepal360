@@ -451,7 +451,16 @@ async function loginUsuario(orgId, email, senha) {
 async function loadAtribuicoes(usuarioId, ciclo) {
   try {
     const rows = await sbFetch(`atribuicoes?usuario_id=eq.${usuarioId}&ciclo=eq.${encodeURIComponent(ciclo)}&select=*`);
-    return rows || [];
+    return (rows || []).map(r => ({
+      id: r.id,
+      ciclo: r.ciclo,
+      form_id: r.form_id,
+      usuario_id: r.usuario_id,
+      avaliado_id: r.avaliado_id || "",
+      avaliado_nome: r.avaliado_nome || "",
+      avaliado_funcao: r.avaliado_funcao || "",
+      concluida: r.concluida || false,
+    }));
   } catch(e) { return []; }
 }
 
