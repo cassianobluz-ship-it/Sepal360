@@ -1658,7 +1658,7 @@ export default function App(){
                         <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>
                           Avalie {at.avaliado_nome}{at.avaliado_funcao ? ` como ${at.avaliado_funcao}` : ""}
                         </div>
-                        <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{formDef.title}</div>
+
                       </>
                     ) : (
                       <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{formDef.title}</div>
