@@ -1225,21 +1225,26 @@ export default function App(){
           </div>
         </div>
         <div style={{maxWidth:900,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
-          {/* Links section - collapsed by default since login system is primary */}
+          {/* Links diretos - colapsável */}
           <div style={{...card,marginBottom:24}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
                 <h3 style={{color:"#1e3a8a",fontSize:15,margin:0}}>🔗 Links diretos</h3>
-                <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Para uso sem login. O sistema de login por usuário é recomendado.</p>
+                <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Acesso sem login — opcional</p>
               </div>
-              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"6px 10px",borderRadius:8,border:"2px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>
-                  {CICLOS.map(c=><option key={c}>{c}</option>)}
-                </select>
-                <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:8,border:"2px solid "+pc,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Editar</button>
-              </div>
+              <button onClick={()=>setShowLinks(p=>!p)}
+                style={{padding:"7px 14px",borderRadius:8,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12,fontWeight:600}}>
+                {showLinks?"▲ Ocultar":"▼ Mostrar"}
+              </button>
             </div>
-            {/* Warning about URL base */}
+            {showLinks&&<>
+            <div style={{marginTop:16,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"6px 10px",borderRadius:8,border:"2px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>
+                {CICLOS.map(c=><option key={c}>{c}</option>)}
+              </select>
+              <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:8,border:"2px solid "+pc,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Editar</button>
+            </div>
+                    {/* Warning about URL base */}
             {/* URL base notice */}
             {!org.baseUrl&&(
               <div style={{background:"#fefce8",borderRadius:10,padding:"10px 14px",border:"1px solid #fde68a",marginBottom:14,fontSize:12,color:"#92400e",display:"flex",alignItems:"center",gap:8}}>
@@ -1248,8 +1253,9 @@ export default function App(){
               </div>
             )}
             {links.map(l=><LinkCard key={l.id} label={`${l.icon} ${l.title}`} link={l.link} color={pc}/>)}
-          </div>
-          <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap",alignItems:"flex-end"}}>
+            </>
+            }
+          </div>          <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>CICLO</label><select value={dci} onChange={e=>setDci(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FORMULÁRIO</label><select value={dfi} onChange={e=>setDfi(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>AVALIADO</label><select value={dAvaliado} onChange={e=>setDAvaliado(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
