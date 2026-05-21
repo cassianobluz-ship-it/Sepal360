@@ -1358,26 +1358,37 @@ export default function App(){
   }
 
   if(screen==="lgpd"&&org&&fForm) return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{maxWidth:480,width:"100%"}}>
-        <div style={{...card,marginBottom:16}}>
-          <div style={{textAlign:"center",marginBottom:20}}><OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{urlCustomLabel||fForm.title}</h2>
-              {urlAvaliadoNome&&<div style={{background:pc+"22",borderRadius:10,padding:"6px 14px",display:"inline-block",fontSize:13,fontWeight:700,color:pc,marginBottom:4}}>👤 Avaliando: {urlAvaliadoNome}</div>}
-              <p style={{color:"#64748b",fontSize:13}}>{org.name} · {ciclo}</p></div>
-          <div style={{background:"#f0fdf4",borderRadius:12,padding:16,border:"1px solid #bbf7d0",marginBottom:20}}><p style={{fontSize:12,color:"#166534",lineHeight:1.8,margin:0}}>🔒 {LGPD}</p></div>
-          <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:20}}>
-            <input type="checkbox" checked={lgpd} onChange={e=>setLgpd(e.target.checked)} style={{marginTop:2,width:16,height:16,cursor:"pointer"}}/>
-            <span style={{fontSize:13,color:"#334155",lineHeight:1.6}}>Compreendo que minhas respostas são anônimas e concordo com os termos acima.</span>
-          </label>
-          <button onClick={()=>{if(lgpd){setFbi(0);setAnswers({});setOpenAns({});setScreen("form");}}} disabled={!lgpd} style={{...btn(pc),width:"100%",opacity:lgpd?1:0.4}}>Iniciar avaliação →</button>
+    <div style={{minHeight:"100vh",background:"#f0f0f0",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+      <div style={{height:6,background:pc,flexShrink:0}}/>
+      <div style={{flex:1,padding:"32px 24px 24px",maxWidth:500,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:32}}>
+          <OrgLogo org={org} size={56}/>
+          <div>
+            <div style={{fontSize:18,fontWeight:800,color:"#1a1a1a",lineHeight:1.2}}>{urlCustomLabel||fForm.title}</div>
+            {urlAvaliadoNome&&<div style={{fontSize:13,color:pc,fontWeight:700,marginTop:4}}>👤 Avaliando: {urlAvaliadoNome}</div>}
+            <div style={{fontSize:12,color:"#888",marginTop:2}}>{org.name} · {ciclo}</div>
+          </div>
         </div>
-        <PoweredBy/>
+        <div style={{background:"#fff",borderRadius:16,padding:20,marginBottom:20,boxShadow:"0 2px 8px #0001"}}>
+          <p style={{fontSize:12,color:"#444",lineHeight:1.8,margin:0}}>🔒 {LGPD}</p>
+        </div>
+        <label style={{display:"flex",alignItems:"flex-start",gap:12,cursor:"pointer",marginBottom:28,background:"#fff",borderRadius:14,padding:16,boxShadow:"0 2px 8px #0001"}}>
+          <input type="checkbox" checked={lgpd} onChange={e=>setLgpd(e.target.checked)} style={{marginTop:2,width:18,height:18,cursor:"pointer",accentColor:pc}}/>
+          <span style={{fontSize:13,color:"#334155",lineHeight:1.6}}>Compreendo que minhas respostas são anônimas e concordo com os termos acima.</span>
+        </label>
+        <div style={{display:"flex",justifyContent:"flex-end"}}>
+          <button onClick={()=>{if(lgpd){setFbi(0);setAnswers({});setOpenAns({});setScreen("form");}}} disabled={!lgpd}
+            style={{padding:"15px 48px",borderRadius:12,border:"none",background:pc,color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",opacity:lgpd?1:0.4,boxShadow:`0 4px 12px ${pc}33`}}>
+            Iniciar →
+          </button>
+        </div>
       </div>
+      <PoweredBy/>
     </div>
   );
 
   if(screen==="form"&&org&&fForm&&fBloc) return(
-    <div style={{...pg}}>
+    <div style={{minHeight:"100vh",background:"#f0f0f0",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
       <div sposition:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"10px 16px",boxShadow:"0 2px 8px #0001"}}>
         <div style={{maxWidth:600,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -1396,7 +1407,7 @@ export default function App(){
           <div style={{background:"#e2e8f0",borderRadius:8,height:4}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:pc,height:4,borderRadius:8,transition:"width 0.4s"}}/></div>
         </div>
       </div>
-      <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 80px",flex:1}}>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 80px",flex:1,width:"100%",boxSizing:"border-box"}}>
         <div style={{marginBottom:20,paddingBottom:16,borderBottom:"2px solid #eff6ff"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:24}}>{fBloc.icon}</span>
@@ -1404,7 +1415,7 @@ export default function App(){
           </div>
         </div>
         {fBloc.perguntas.map((p,i)=>(
-          <div key={i} style={{marginBottom:24,paddingBottom:24,borderBottom:"1px solid #f1f5f9"}}>
+          <div key={i} style={{marginBottom:16,background:"#fff",borderRadius:14,padding:"16px",boxShadow:"0 1px 4px #0001"}}>
             <p style={{color:"#1e293b",fontSize:14,lineHeight:1.6,marginBottom:12,fontWeight:500}}>{p}</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
               {[1,2,3,4,5,0].map(v=>{
@@ -1615,20 +1626,38 @@ export default function App(){
 
   // ── USER LOGIN ──
   if(screen==="user_login"&&org) return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{...card,maxWidth:380,width:"100%",textAlign:"center"}}>
-        <OrgLogo org={org} size={64}/>
-        <h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{org.name}</h2>
-        <p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Entre com seu email e senha</p>
-        <input type="email" placeholder="Seu email" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)}
-          style={{...inp,marginBottom:10}} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}/>
-        <input type="password" placeholder="Sua senha" value={loginSenha} onChange={e=>setLoginSenha(e.target.value)}
-          style={{...inp,border:`2px solid ${loginErr?"#ef4444":"#dbeafe"}`,marginBottom:6}}
-          onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}/>
-        {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8}}>{loginErr}</p>}
-        <button onClick={handleUserLogin} style={{...btn(org.primaryColor||"#2563eb"),width:"100%",marginTop:8}}>Entrar</button>
-        <p style={{fontSize:11,color:"#94a3b8",marginTop:16,lineHeight:1.6}}>
-          Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal.
+    <div style={{minHeight:"100vh",background:"#f0f0f0",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+      {/* Top color bar */}
+      <div style={{height:80,background:org.primaryColor||"#2563eb",flexShrink:0}}/>
+      {/* Main content */}
+      <div style={{flex:1,padding:"32px 24px 24px",display:"flex",flexDirection:"column",maxWidth:440,margin:"0 auto",width:"100%"}}>
+        {/* Logo + title */}
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:48}}>
+          <OrgLogo org={org} size={72}/>
+          <div>
+            <div style={{fontSize:22,fontWeight:800,color:"#1a1a1a",lineHeight:1.2}}>Login</div>
+            <div style={{fontSize:13,color:"#666",marginTop:4}}>{org.name}</div>
+          </div>
+        </div>
+        {/* Fields */}
+        <input type="email" placeholder="Seu email" value={loginEmail}
+          onChange={e=>setLoginEmail(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+          style={{width:"100%",padding:"18px 20px",borderRadius:14,border:"none",background:"#fff",fontSize:15,outline:"none",marginBottom:16,boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
+        <input type="password" placeholder="Senha" value={loginSenha}
+          onChange={e=>setLoginSenha(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+          style={{width:"100%",padding:"18px 20px",borderRadius:14,border:`2px solid ${loginErr?"#ef4444":"transparent"}`,background:"#fff",fontSize:15,outline:"none",marginBottom:6,boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
+        {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8,paddingLeft:4}}>{loginErr}</p>}
+        {/* Login button - right aligned like UFMG */}
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:24}}>
+          <button onClick={handleUserLogin}
+            style={{padding:"15px 48px",borderRadius:12,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px #2563eb33"}}>
+            Entrar
+          </button>
+        </div>
+        <p style={{fontSize:11,color:"#94a3b8",marginTop:32,lineHeight:1.7,textAlign:"center"}}>
+          🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal.
         </p>
       </div>
       <PoweredBy/>
@@ -1638,20 +1667,27 @@ export default function App(){
   // ── USER DASHBOARD (painel do avaliador) ──
   if(screen==="user_dash"&&org&&usuarioLogado) return(
     <div style={{...pg,padding:0}}>
-      <div style={{background:org.primaryColor||"#1e3a8a",color:"#fff",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <OrgLogo org={org} size={32}/>
+      <div style={{background:org.primaryColor||"#2563eb",color:"#fff",padding:"16px 20px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <OrgLogo org={org} size={40}/>
           <div>
-            <div style={{fontWeight:700,fontSize:14}}>Olá, {usuarioLogado.nome}!</div>
-            <div style={{fontSize:11,opacity:0.75}}>{org.name}</div>
+            <div style={{fontWeight:800,fontSize:16}}>Olá, {usuarioLogado.nome.split(" ")[0]}!</div>
+            <div style={{fontSize:12,opacity:0.8,marginTop:2}}>{org.name}</div>
           </div>
         </div>
         <button onClick={()=>{setUsuarioLogado(null);setAtribuicoes([]);setScreen("user_login");}}
-          style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>Sair</button>
+          style={{background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:600}}>Sair</button>
       </div>
       <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
-        <h2 style={{color:"#1e3a8a",fontSize:16,marginBottom:6}}>Suas avaliações</h2>
-        <p style={{fontSize:13,color:"#64748b",marginBottom:20}}>Ciclo: <strong>{org.activeCiclo||CICLOS[0]}</strong></p>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+          <div>
+            <h2 style={{color:"#1e3a8a",fontSize:16,margin:0}}>Suas avaliações</h2>
+            <p style={{fontSize:12,color:"#64748b",marginTop:4}}>Ciclo: <strong>{org.activeCiclo||CICLOS[0]}</strong></p>
+          </div>
+          <div style={{background:"#eff6ff",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,color:org.primaryColor||"#2563eb"}}>
+            {atribuicoes.filter(a=>a.concluida).length}/{atribuicoes.length} concluídas
+          </div>
+        </div>
         {atribuicoes.length===0?(
           <div style={{...card,textAlign:"center",padding:40}}>
             <div style={{fontSize:40,marginBottom:12}}>📋</div>
@@ -1664,8 +1700,9 @@ export default function App(){
               const formDef=forms.find(f=>f.id===at.form_id);
               if(!formDef) return null;
               return(
-                <div key={at.id} style={{...card,display:"flex",alignItems:"center",gap:14,padding:18,
-                  opacity:at.concluida?0.6:1,
+                <div key={at.id} style={{background:"#fff",borderRadius:16,padding:"16px 18px",display:"flex",alignItems:"center",gap:14,
+                  opacity:at.concluida?0.65:1,
+                  boxShadow:"0 2px 8px #0001",
                   borderLeft:`4px solid ${at.concluida?"#10b981":org.primaryColor||"#2563eb"}`}}>
                   <span style={{fontSize:24}}>{formDef.icon}</span>
                   <div style={{flex:1}}>
