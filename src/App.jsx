@@ -7,7 +7,7 @@ const STORAGE_RESPOSTAS = "cg360_respostas";
 const STORAGE_FORMS = "cg360_forms";
 
 const DEFAULT_SCALE_LABELS = {
-  1:"Nunca", 2:"Raramente", 3:"Às vezes", 4:"Frequentemente", 5:"Exemplarmente", 0:"Não sei avaliar"
+  1:"Nunca", 2:"Raramente", 3:"Às vezes", 4:"Frequente", 5:"Exemplar", 0:"Não sei"
 };
 const SC = {0:"#94a3b8",1:"#ef4444",2:"#f97316",3:"#eab308",4:"#22c55e",5:"#10b981"};
 // SCALE is built dynamically from org settings — see getScale() in App
@@ -1378,21 +1378,34 @@ export default function App(){
 
   if(screen==="form"&&org&&fForm&&fBloc) return(
     <div style={{...pg}}>
-      <div style={{position:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #dbeafe",padding:"10px 16px"}}>
+      <div sposition:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"10px 16px",boxShadow:"0 2px 8px #0001"}}>
         <div style={{maxWidth:600,margin:"0 auto"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}><OrgLogo org={org} size={26}/><span style={{fontWeight:700,color:"#1e3a8a",fontSize:13}}>{urlCustomLabel||fForm.title}</span>
-            {urlAvaliadoNome&&<span style={{fontSize:11,color:pc,fontWeight:600,background:pc+"18",borderRadius:6,padding:"2px 8px"}}>👤 {urlAvaliadoNome}</span>}</div>
-            <span style={{fontSize:11,color:"#94a3b8"}}>{fbi+1}/{fForm.blocos.length}</span>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <OrgLogo org={org} size={32}/>
+              <div>
+                <div style={{fontWeight:700,color:"#1e3a8a",fontSize:13,lineHeight:1.2}}>{urlAvaliadoNome?`Avaliando: ${urlAvaliadoNome}`:fForm.title}</div>
+                {urlAvaliadoNome&&<div style={{fontSize:10,color:"#64748b"}}>{fForm.title}</div>}
+              </div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:12,fontWeight:700,color:pc}}>{fbi+1}/{fForm.blocos.length}</div>
+              <div style={{fontSize:10,color:"#94a3b8"}}>blocos</div>
+            </div>
           </div>
-          <div style={{background:"#e2e8f0",borderRadius:8,height:6}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:pc,height:6,borderRadius:8,transition:"width 0.4s"}}/></div>
+          <div style={{background:"#e2e8f0",borderRadius:8,height:4}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:pc,height:4,borderRadius:8,transition:"width 0.4s"}}/></div>
         </div>
       </div>
       <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 80px",flex:1}}>
-        <div style={{marginBottom:24}}><span style={{fontSize:28}}>{fBloc.icon}</span><h2 style={{color:"#1e3a8a",fontSize:18,margin:"8px 0 4px"}}>{fBloc.title}</h2><div style={{height:2,background:"#dbeafe",borderRadius:2}}/></div>
+        <div style={{marginBottom:20,paddingBottom:16,borderBottom:"2px solid #eff6ff"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:24}}>{fBloc.icon}</span>
+            <h2 style={{color:"#1e3a8a",fontSize:17,margin:0,fontWeight:700}}>{fBloc.title}</h2>
+          </div>
+        </div>
         {fBloc.perguntas.map((p,i)=>(
-          <div key={i} style={{marginBottom:28}}>
-            <p style={{color:"#334155",fontSize:14,lineHeight:1.6,marginBottom:10}}>{p}</p>
+          <div key={i} style={{marginBottom:24,paddingBottom:24,borderBottom:"1px solid #f1f5f9"}}>
+            <p style={{color:"#1e293b",fontSize:14,lineHeight:1.6,marginBottom:12,fontWeight:500}}>{p}</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
               {[1,2,3,4,5,0].map(v=>{
                 const sel=answers[`${fBloc.id}_${i}`]===v;
@@ -1401,11 +1414,11 @@ export default function App(){
                   <button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",
                       justifyContent:"center",
-                      padding:"10px 4px",borderRadius:10,minHeight:56,
+                      padding:"8px 2px",borderRadius:10,minHeight:58,
                       border:`2px solid ${sel?SC[v]:"#e2e8f0"}`,
                       background:sel?SC[v]:"#f8fafc",color:sel?"#fff":"#475569",
-                      cursor:"pointer",fontSize:11,fontWeight:600,transition:"all 0.15s",
-                      width:"100%",boxSizing:"border-box"}}>
+                      cursor:"pointer",fontSize:10,fontWeight:600,transition:"all 0.15s",
+                      width:"100%",boxSizing:"border-box",lineHeight:1.2}}>
                     {v!==0&&<span style={{fontSize:15,fontWeight:800,lineHeight:1.2}}>{v}</span>}
                     <span style={{textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:"100%"}}>{label}</span>
                   </button>
@@ -1425,9 +1438,12 @@ export default function App(){
             ))}
           </div>
         )}
-        <div style={{display:"flex",gap:12,marginTop:28}}>
-          <button onClick={()=>fbi===0?setScreen("lgpd"):setFbi(b=>b-1)} style={{...btnO,flex:1}}>← Voltar</button>
-          {isLast?<button onClick={submitForm} disabled={saving} style={{...btn(pc),flex:2,opacity:saving?0.6:1}}>{saving?"Salvando…":"Enviar ✓"}</button>:<button onClick={()=>setFbi(b=>b+1)} style={{...btn(pc),flex:2}}>Próximo →</button>}
+        <div style={{display:"flex",gap:12,marginTop:28,paddingTop:16}}>
+          <button onClick={()=>fbi===0?setScreen("lgpd"):setFbi(b=>b-1)} style={{...btnO,flex:1,borderRadius:12,padding:"13px 0"}}>← Voltar</button>
+          {isLast
+            ?<button onClick={submitForm} disabled={saving} style={{...btn(pc),flex:2,borderRadius:12,padding:"13px 0",opacity:saving?0.6:1,fontSize:14}}>{saving?"Salvando…":"Enviar avaliação ✓"}</button>
+            :<button onClick={()=>setFbi(b=>b+1)} style={{...btn(pc),flex:2,borderRadius:12,padding:"13px 0",fontSize:14}}>Próximo →</button>
+          }
         </div>
       </div>
       <PoweredBy/>
