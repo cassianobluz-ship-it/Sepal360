@@ -10,6 +10,8 @@ const DEFAULT_SCALE_LABELS = {
   1:"Nunca", 2:"Raramente", 3:"Às vezes", 4:"Frequente", 5:"Exemplar", 0:"Não sei"
 };
 const SC = {0:"#94a3b8",1:"#ef4444",2:"#f97316",3:"#eab308",4:"#22c55e",5:"#10b981"};
+const DEFAULT_YESNO_LABELS = {1:"Sim", 2:"Atenção", 0:"Não"};
+const YESNO_COLORS = {1:"#ef4444", 2:"#f59e0b", 0:"#10b981"};
 // SCALE is built dynamically from org settings — see getScale() in App
 const CICLOS = ["2025 - 1º Semestre","2025 - 2º Semestre","2026 - 1º Semestre","2026 - 2º Semestre","2027 - 1º Semestre","2027 - 2º Semestre"];
 const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal identificável é coletado. Os administradores do sistema visualizam apenas resultados agregados, sem identificação de quem respondeu. Os dados são utilizados exclusivamente para fins de desenvolvimento organizacional interno, conforme a LGPD (Lei nº 13.709/2018). Você pode interromper o preenchimento a qualquer momento.";
@@ -92,7 +94,7 @@ const DEFAULT_FORMS = [
           "Escuta opiniões diferentes.",
           "Demonstra disposição para cooperar.",
         ],
-        abertas:["O que mais fortalece a convivência com essa pessoa?","O que poderia melhorar na convivência?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"comunicacao_par", title:"Comunicação", icon:"💬",
         perguntas:[
           "Comunica-se de forma clara.",
@@ -101,7 +103,7 @@ const DEFAULT_FORMS = [
           "Demonstra abertura ao diálogo.",
           "Quando precisa corrigir ou orientar, faz isso de forma respeitosa e construtiva.",
         ],
-        abertas:["Como você descreveria a comunicação dessa pessoa?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"maturidade", title:"Maturidade emocional", icon:"💙",
         perguntas:[
           "Demonstra equilíbrio emocional diante das pressões.",
@@ -109,7 +111,7 @@ const DEFAULT_FORMS = [
           "Assume erros quando necessário.",
           "Ouve críticas sem defensividade excessiva.",
         ],
-        abertas:["Existem sinais de desgaste emocional que merecem atenção?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"cultura_par", title:"Cultura e missão", icon:"⛵",
         perguntas:[
           "Representa bem os valores da organização.",
@@ -117,7 +119,7 @@ const DEFAULT_FORMS = [
           "Demonstra compromisso com a organização.",
           "Atua de forma coerente com a cultura onde está inserida.",
         ],
-        abertas:["Onde essa pessoa mais fortalece a missão?","Existe algo que pode limitar seu desenvolvimento futuro?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"saude_integral_par", title:"Saúde integral", icon:"💚",
         perguntas:[
           "Demonstra abertura e vulnerabilidade saudável.",
@@ -126,7 +128,7 @@ const DEFAULT_FORMS = [
           "Demonstra maturidade para lidar com frustrações.",
         ],
         abertas:[]},
-      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️",
+      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:[
           "Percebo sinais de sobrecarga.",
           "Percebo sinais de isolamento.",
@@ -135,7 +137,7 @@ const DEFAULT_FORMS = [
           "Percebo tensões relacionais recorrentes.",
           "Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
         ],
-        abertas:["Quais sinais merecem atenção?","Que tipo de apoio poderia fortalecer essa pessoa?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
     ]},
   { id:"lideranca_direta", title:"Avaliação pela Liderança", icon:"🧭", subtitle:"Avaliação de quem acompanha de perto",
     blocos:[
@@ -162,7 +164,7 @@ const DEFAULT_FORMS = [
           "Demonstra boa disposição física.",
           "Sabe pedir ajuda quando necessário.",
         ],
-        abertas:["Quais são hoje os principais potenciais dessa pessoa?","Quais áreas merecem desenvolvimento prioritário?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"maturidade_lid", title:"Maturidade emocional", icon:"💜",
         perguntas:[
           "Demonstra equilíbrio emocional diante das pressões.",
@@ -171,7 +173,7 @@ const DEFAULT_FORMS = [
           "Assume erros quando necessário.",
           "Recebe correções sem defensividade excessiva.",
         ], abertas:[]},
-      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️",
+      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:[
           "Percebo sinais de sobrecarga.",
           "Percebo sinais de isolamento.",
@@ -180,7 +182,7 @@ const DEFAULT_FORMS = [
           "Percebo tensões relacionais recorrentes.",
           "Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
         ],
-        abertas:["Existem sinais preventivos de desgaste ou risco?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
     ]},
   { id:"liderados", title:"Avaliação pelos Liderados", icon:"🌿", subtitle:"Sua perspectiva importa e será tratada com cuidado",
     blocos:[
@@ -195,7 +197,7 @@ const DEFAULT_FORMS = [
           "Assume responsabilidade pelos erros.",
           "Demonstra coerência entre discurso e prática.",
         ],
-        abertas:["Como é ser liderado por essa pessoa?","O que mais fortalece sua liderança?","O que poderia amadurecer?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"saude_relacional", title:"Saúde relacional", icon:"💙",
         perguntas:[
           "Gera e transmite confiança ao seu redor.",
@@ -205,7 +207,7 @@ const DEFAULT_FORMS = [
           "Demonstra abertura para ouvir críticas.",
           "Demonstra cuidado genuíno pelas pessoas.",
         ],
-        abertas:["Existe algo relacional que merece atenção?","Você se sente emocionalmente seguro com essa liderança?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"maturidade_lid2", title:"Maturidade emocional", icon:"💜",
         perguntas:[
           "Demonstra equilíbrio emocional diante das pressões.",
@@ -213,7 +215,7 @@ const DEFAULT_FORMS = [
           "Demonstra segurança sem arrogância.",
           "Assume erros quando necessário.",
         ], abertas:[]},
-      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️",
+      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:[
           "Percebo sinais de sobrecarga.",
           "Percebo sinais de isolamento.",
@@ -222,7 +224,7 @@ const DEFAULT_FORMS = [
           "Percebo tensões relacionais recorrentes.",
           "Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento.",
         ],
-        abertas:["Quais sinais merecem atenção?","Que tipo de apoio poderia fortalecer essa pessoa?"]},
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
     ]},
 ];
 
@@ -284,6 +286,7 @@ async function upsertOrg(org) {
         active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
         scale_labels: org.scaleLabels || {},
         slug: org.slug || "",
+        yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS,
         created_at: org.createdAt || new Date().toISOString(),
       }),
     });
@@ -493,6 +496,16 @@ async function marcarAtribuicaoConcluida(atribId) {
   } catch(e) { return false; }
 }
 
+async function resetAtribuicao(atribId) {
+  try {
+    await sbFetch(`atribuicoes?id=eq.${atribId}`, {
+      method: "PATCH", prefer: "return=minimal",
+      body: JSON.stringify({ concluida: false }),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
 async function loadOrgBySlug(slug) {
   try {
     // Try exact slug match first
@@ -511,6 +524,7 @@ async function loadOrgBySlug(slug) {
         baseUrl: r.base_url,
         activeCiclo: r.active_ciclo,
         scaleLabels: r.scale_labels,
+        yesnoLabels: r.yesno_labels || DEFAULT_YESNO_LABELS,
         slug: r.slug,
         createdAt: r.created_at,
       };
@@ -694,10 +708,19 @@ function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}
                 {avaliados.map(av=>{
                   const checked = !!ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id);
                   return(
-                    <label key={av.id} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",background:checked?"#eff6ff":"#fff",border:`2px solid ${checked?pc:"#e2e8f0"}`,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:checked?700:400,color:checked?pc:"#64748b"}}>
-                      <input type="checkbox" checked={checked} onChange={()=>toggle(f.id,av.id,av.nome)} style={{cursor:"pointer"}}/>
-                      {av.nome}
-                    </label>
+                    <div key={av.id} style={{display:"flex",alignItems:"center",gap:4}}>
+                      <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",background:checked?"#eff6ff":"#fff",border:`2px solid ${checked?pc:"#e2e8f0"}`,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:checked?700:400,color:checked?pc:"#64748b",flex:1}}>
+                        <input type="checkbox" checked={checked} onChange={()=>toggle(f.id,av.id,av.nome)} style={{cursor:"pointer"}}/>
+                        {av.nome}
+                        {checked&&ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id)?.concluida&&<span style={{fontSize:10,color:"#10b981",marginLeft:4}}>✓</span>}
+                      </label>
+                      {checked&&ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id)?.concluida&&(
+                        <button onClick={async()=>{
+                          const at=ats.find(a=>a.form_id===f.id&&a.avaliado_id===av.id);
+                          if(at){await resetAtribuicao(at.id);setAts(p=>p.map(x=>x.id===at.id?{...x,concluida:false}:x));}
+                        }} title="Reiniciar avaliação" style={{padding:"6px 8px",borderRadius:8,border:"none",background:"#fef3c7",color:"#d97706",cursor:"pointer",fontSize:11,fontWeight:700,flexShrink:0}}>↺</button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -752,6 +775,7 @@ export default function App(){
   const [loginErr,setLoginErr]=useState("");
   const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
+  const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
 
   useEffect(()=>{
     async function init(){
@@ -773,6 +797,7 @@ export default function App(){
           const f = await loadForms(orgData.id);
           setForms(f);
           setScaleLabels(orgData.scaleLabels || DEFAULT_SCALE_LABELS);
+          setYesnoLabels(orgData.yesnoLabels || DEFAULT_YESNO_LABELS);
           const cicloRaw = pathParts[1] || "";
           const shortMatch = cicloRaw.match(/^(\d{4})-s([12])$/);
           let cDecoded;
@@ -937,6 +962,8 @@ export default function App(){
       const f=await loadForms(o.id);const r=await loadResps(o.id);
       const cl=await loadCustomLinks2(o.id);
       const sl=o.scaleLabels||DEFAULT_SCALE_LABELS;
+      const yl=o.yesnoLabels||DEFAULT_YESNO_LABELS;
+      setYesnoLabels(yl);
       const av=await loadAvaliados(o.id);
       setForms(f);setResps(r);setCfg(clone(o));setCustomLinks(cl);setScaleLabels(sl);setAvaliados(av);setScreen("dash");
     }else setOrgE(true);
@@ -959,7 +986,7 @@ export default function App(){
     const u={...orgs};delete u[id];setOrgs(u);
   }
   async function saveCfg(){
-    const updated={...cfg,scaleLabels:scaleLabels,slug:cfg.slug||""};
+    const updated={...cfg,scaleLabels:scaleLabels,yesnoLabels:yesnoLabels,slug:cfg.slug||""};
     const ok = await upsertOrg(updated);
     if(!ok){alert("Erro ao salvar configurações.");return;}
     const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);setCfg(updated);
@@ -1198,19 +1225,21 @@ export default function App(){
           </div>
         </div>
         <div style={{maxWidth:900,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
+          {/* Links section - collapsed by default since login system is primary */}
           <div style={{...card,marginBottom:24}}>
-            <div style={{marginBottom:16}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:10}}>
-                <h3 style={{color:"#1e3a8a",fontSize:15,margin:0}}>🔗 Links para compartilhar</h3>
-                <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:8,border:"2px solid "+pc,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Personalizar títulos</button>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:0}}>
+              <div>
+                <h3 style={{color:"#1e3a8a",fontSize:15,margin:0}}>🔗 Links diretos</h3>
+                <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Para uso sem login. O sistema de login por usuário é recomendado.</p>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <span style={{fontSize:12,color:"#94a3b8"}}>Ciclo ativo:</span>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"6px 10px",borderRadius:8,border:"2px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>
                   {CICLOS.map(c=><option key={c}>{c}</option>)}
                 </select>
+                <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:8,border:"2px solid "+pc,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Editar</button>
               </div>
             </div>
+            {/* Warning about URL base */}
             {/* URL base notice */}
             {!org.baseUrl&&(
               <div style={{background:"#fefce8",borderRadius:10,padding:"10px 14px",border:"1px solid #fde68a",marginBottom:14,fontSize:12,color:"#92400e",display:"flex",alignItems:"center",gap:8}}>
@@ -1293,6 +1322,24 @@ export default function App(){
             ))}
           </div>
           <button onClick={()=>setScaleLabels(DEFAULT_SCALE_LABELS)} style={{marginTop:12,padding:"6px 14px",borderRadius:8,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12}}>
+            Restaurar padrão
+          </button>
+        </div>
+        <div style={{...card,marginBottom:16}}>
+          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15}}>⚠️ Escala Sim/Não/Atenção</h3>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Usada nos blocos de "Riscos e sinais preventivos".</p>
+          <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"10px 12px",alignItems:"center"}}>
+            {[1,2,0].map(v=>(
+              <>
+                <div key={"n"+v} style={{width:32,height:32,borderRadius:8,background:YESNO_COLORS[v],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"#fff",flexShrink:0}}>
+                  {v===1?"S":v===2?"!":"N"}
+                </div>
+                <input key={"i"+v} value={yesnoLabels[v]||""} onChange={e=>setYesnoLabels(p=>({...p,[v]:e.target.value}))}
+                  style={{...inp,padding:"8px 12px"}} placeholder={DEFAULT_YESNO_LABELS[v]}/>
+              </>
+            ))}
+          </div>
+          <button onClick={()=>setYesnoLabels(DEFAULT_YESNO_LABELS)} style={{marginTop:12,padding:"6px 14px",borderRadius:8,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12}}>
             Restaurar padrão
           </button>
         </div>
@@ -1417,25 +1464,44 @@ export default function App(){
         {fBloc.perguntas.map((p,i)=>(
           <div key={i} style={{marginBottom:16,background:"#fff",borderRadius:14,padding:"16px",boxShadow:"0 1px 4px #0001"}}>
             <p style={{color:"#1e293b",fontSize:14,lineHeight:1.6,marginBottom:12,fontWeight:500}}>{p}</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
-              {[1,2,3,4,5,0].map(v=>{
-                const sel=answers[`${fBloc.id}_${i}`]===v;
-                const label=scaleLabels[v]||DEFAULT_SCALE_LABELS[v];
-                return(
-                  <button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",
-                      justifyContent:"center",
-                      padding:"8px 2px",borderRadius:10,minHeight:58,
-                      border:`2px solid ${sel?SC[v]:"#e2e8f0"}`,
-                      background:sel?SC[v]:"#f8fafc",color:sel?"#fff":"#475569",
-                      cursor:"pointer",fontSize:10,fontWeight:600,transition:"all 0.15s",
-                      width:"100%",boxSizing:"border-box",lineHeight:1.2}}>
-                    {v!==0&&<span style={{fontSize:15,fontWeight:800,lineHeight:1.2}}>{v}</span>}
-                    <span style={{textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:"100%"}}>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {fBloc.scaleType==="yesno" ? (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                {[1,2,0].map(v=>{
+                  const sel=answers[`${fBloc.id}_${i}`]===v;
+                  const label=yesnoLabels[v]||DEFAULT_YESNO_LABELS[v];
+                  const col=YESNO_COLORS[v];
+                  return(
+                    <button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
+                      style={{padding:"14px 8px",borderRadius:12,border:`2px solid ${sel?col:"#e2e8f0"}`,
+                        background:sel?col:"#fff",color:sel?"#fff":"#475569",
+                        cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.15s",
+                        boxShadow:sel?`0 2px 8px ${col}44`:"none"}}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                {[1,2,3,4,5,0].map(v=>{
+                  const sel=answers[`${fBloc.id}_${i}`]===v;
+                  const label=scaleLabels[v]||DEFAULT_SCALE_LABELS[v];
+                  return(
+                    <button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
+                      style={{display:"flex",flexDirection:"column",alignItems:"center",
+                        justifyContent:"center",
+                        padding:"8px 2px",borderRadius:10,minHeight:58,
+                        border:`2px solid ${sel?SC[v]:"#e2e8f0"}`,
+                        background:sel?SC[v]:"#f8fafc",color:sel?"#fff":"#475569",
+                        cursor:"pointer",fontSize:10,fontWeight:600,transition:"all 0.15s",
+                        width:"100%",boxSizing:"border-box",lineHeight:1.2}}>
+                      {v!==0&&<span style={{fontSize:15,fontWeight:800,lineHeight:1.2}}>{v}</span>}
+                      <span style={{textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:"100%"}}>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
         {fBloc.abertas?.length>0&&(
