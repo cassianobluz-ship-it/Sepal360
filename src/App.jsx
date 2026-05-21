@@ -1389,7 +1389,7 @@ export default function App(){
 
   if(screen==="form"&&org&&fForm&&fBloc) return(
     <div style={{minHeight:"100vh",background:"#f0f0f0",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
-      <div sposition:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"10px 16px",boxShadow:"0 2px 8px #0001"}}>
+      <div style={{position:"sticky",top:0,zIndex:10,background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"10px 16px",boxShadow:"0 2px 8px #0001"}}>
         <div style={{maxWidth:600,margin:"0 auto"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
