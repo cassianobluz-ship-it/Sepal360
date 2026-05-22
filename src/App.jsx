@@ -1098,10 +1098,9 @@ export default function App(){
   const [importResult,setImportResult]=useState(null);
   const [progressSaving,setProgressSaving]=useState(false);
   const [sendingNotif,setSendingNotif]=useState(false);
-  const [dashTab2,setDashTab2]=useState("status"); // status | charts | reflexoes
+  const [dashTab2,setDashTab2]=useState("status");
   const [showAtribuicoes,setShowAtribuicoes]=useState(null);
-  const [importTab,setImportTab]=useState(null); // 'usuarios' | 'avaliados' | null
-  const [importResult,setImportResult]=useState(null);
+  const [importTab,setImportTab]=useState(null);
   const [notifSending,setNotifSending]=useState(false);
   const [notifSent,setNotifSent]=useState(false);
   const [progressData,setProgressData]=useState(null);
