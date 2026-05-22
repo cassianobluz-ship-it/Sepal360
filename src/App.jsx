@@ -129,7 +129,7 @@ const DEFAULT_FORMS = [
           "Demonstra maturidade para lidar com frustrações.",
         ],
         abertas:[]},
-      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno", scaleType:"yesno",
+      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:[
           "Percebo sinais de sobrecarga.",
           "Percebo sinais de isolamento.",
@@ -174,7 +174,7 @@ const DEFAULT_FORMS = [
           "Assume erros quando necessário.",
           "Recebe correções sem defensividade excessiva.",
         ], abertas:[]},
-      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno", scaleType:"yesno",
+      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:[
           "Percebo sinais de sobrecarga.",
           "Percebo sinais de isolamento.",
@@ -216,7 +216,7 @@ const DEFAULT_FORMS = [
           "Demonstra segurança sem arrogância.",
           "Assume erros quando necessário.",
         ], abertas:[]},
-      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno", scaleType:"yesno",
+      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:[
           "Percebo sinais de sobrecarga.",
           "Percebo sinais de isolamento.",
