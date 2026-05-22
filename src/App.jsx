@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
+ 
 const SUPER_ADMIN_PASSWORD = "W@Huimai2";
 const STORAGE_ORGS = "cg360_orgs";
 const STORAGE_RESPOSTAS = "cg360_respostas";
