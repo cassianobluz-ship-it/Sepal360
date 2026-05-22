@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
- 
+
 const SUPER_ADMIN_PASSWORD = "W@Huimai2";
 const STORAGE_ORGS = "cg360_orgs";
 const STORAGE_RESPOSTAS = "cg360_respostas";
@@ -780,7 +780,6 @@ export default function App(){
   const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
   const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
-  const [showLinks,setShowLinks]=useState(false);
   const [importTab,setImportTab]=useState(null);
   const [importResult,setImportResult]=useState(null);
   const [notifSending,setNotifSending]=useState(false);
