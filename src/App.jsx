@@ -773,6 +773,8 @@ export default function App(){
   const [loginEmail,setLoginEmail]=useState("");
   const [loginSenha,setLoginSenha]=useState("");
   const [loginErr,setLoginErr]=useState("");
+  const [showPwd,setShowPwd]=useState(false);
+  const [forgotMode,setForgotMode]=useState(false);
   const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
   const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
@@ -1202,7 +1204,15 @@ export default function App(){
     <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{...card,maxWidth:360,width:"100%",textAlign:"center"}}>
         <OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{org.name}</h2><p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Painel administrativo</p>
-        <input type="password" placeholder="Senha do administrador" value={orgP} onChange={e=>setOrgP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&loginOrg(org)} style={{...inp,border:`2px solid ${orgE?"#ef4444":"#dbeafe"}`,marginBottom:6}}/>
+        <div style={{position:"relative",marginBottom:6}}>
+          <input type={showPwd?"text":"password"} placeholder="Senha do administrador" value={orgP}
+            onChange={e=>setOrgP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&loginOrg(org)}
+            style={{...inp,border:`2px solid ${orgE?"#ef4444":"#dbeafe"}`,paddingRight:48}}/>
+          <button onClick={()=>setShowPwd(p=>!p)}
+            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#94a3b8",padding:4}}>
+            {showPwd?"🙈":"👁️"}
+          </button>
+        </div>
         {orgE&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8}}>Senha incorreta</p>}
         <div style={{display:"flex",gap:10,marginTop:12}}><button onClick={()=>setScreen("org_list")} style={{...btnO,flex:1}}>Voltar</button><button onClick={()=>loginOrg(org)} style={{...btn(org.primaryColor||"#2563eb"),flex:2}}>Entrar</button></div>
       </div>
@@ -1255,7 +1265,9 @@ export default function App(){
             {links.map(l=><LinkCard key={l.id} label={`${l.icon} ${l.title}`} link={l.link} color={pc}/>)}
             </>
             }
-          </div>          <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap",alignItems:"flex-end"}}>
+          </div>
+
+          <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>CICLO</label><select value={dci} onChange={e=>setDci(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FORMULÁRIO</label><select value={dfi} onChange={e=>setDfi(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
             <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>AVALIADO</label><select value={dAvaliado} onChange={e=>setDAvaliado(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
@@ -1716,18 +1728,39 @@ export default function App(){
           onChange={e=>setLoginEmail(e.target.value)}
           onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
           style={{width:"100%",padding:"18px 20px",borderRadius:14,border:"none",background:"#fff",fontSize:15,outline:"none",marginBottom:16,boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
-        <input type="password" placeholder="Senha" value={loginSenha}
-          onChange={e=>setLoginSenha(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
-          style={{width:"100%",padding:"18px 20px",borderRadius:14,border:`2px solid ${loginErr?"#ef4444":"transparent"}`,background:"#fff",fontSize:15,outline:"none",marginBottom:6,boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
-        {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8,paddingLeft:4}}>{loginErr}</p>}
-        {/* Login button - right aligned like UFMG */}
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:24}}>
-          <button onClick={handleUserLogin}
-            style={{padding:"15px 48px",borderRadius:12,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px #2563eb33"}}>
-            Entrar
+        <div style={{position:"relative",marginBottom:6}}>
+          <input type={showPwd?"text":"password"} placeholder="Senha" value={loginSenha}
+            onChange={e=>setLoginSenha(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+            style={{width:"100%",padding:"18px 56px 18px 20px",borderRadius:14,border:`2px solid ${loginErr?"#ef4444":"transparent"}`,background:"#fff",fontSize:15,outline:"none",boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
+          <button onClick={()=>setShowPwd(p=>!p)}
+            style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#94a3b8",padding:4}}>
+            {showPwd?"🙈":"👁️"}
           </button>
         </div>
+        {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8,paddingLeft:4}}>{loginErr}</p>}
+        {forgotMode?(
+          <div style={{background:"#eff6ff",borderRadius:14,padding:16,marginTop:8}}>
+            <p style={{fontSize:13,color:"#1e3a8a",fontWeight:700,marginBottom:8}}>Esqueci minha senha</p>
+            <p style={{fontSize:12,color:"#475569",lineHeight:1.7,marginBottom:12}}>
+              Entre em contato com o administrador da sua organização para redefinir sua senha. 
+              O administrador pode alterar sua senha na tela de <strong>🔑 Usuários</strong> do painel administrativo.
+            </p>
+            <button onClick={()=>setForgotMode(false)} style={{fontSize:12,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>← Voltar ao login</button>
+          </div>
+        ):(
+          <>
+            <button onClick={()=>setForgotMode(true)} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",padding:"4px 0",textAlign:"left",marginTop:4}}>
+              Esqueci minha senha
+            </button>
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:20}}>
+              <button onClick={handleUserLogin}
+                style={{padding:"15px 48px",borderRadius:12,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px #2563eb33"}}>
+                Entrar
+              </button>
+            </div>
+          </>
+        )}
         <p style={{fontSize:11,color:"#94a3b8",marginTop:32,lineHeight:1.7,textAlign:"center"}}>
           🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal.
         </p>
@@ -1839,7 +1872,10 @@ export default function App(){
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>EMAIL *</label>
                 <input type="email" value={newUsuario.email} onChange={e=>setNewUsuario(p=>({...p,email:e.target.value}))} style={inp} placeholder="email@org.com"/></div>
               <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA *</label>
-                <input type="password" value={newUsuario.senha} onChange={e=>setNewUsuario(p=>({...p,senha:e.target.value}))} style={inp} placeholder="Senha inicial"/></div>
+                <div style={{position:"relative"}}>
+                  <input type={showPwd?"text":"password"} value={newUsuario.senha} onChange={e=>setNewUsuario(p=>({...p,senha:e.target.value}))} style={{...inp,paddingRight:44}} placeholder="Senha inicial"/>
+                  <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8"}}>{showPwd?"🙈":"👁️"}</button>
+                </div></div>
             </div>
             <button onClick={async()=>{
               if(!newUsuario.nome.trim()||!newUsuario.email.trim()||!newUsuario.senha.trim()) return;
@@ -1869,6 +1905,12 @@ export default function App(){
                         style={{padding:"5px 10px",borderRadius:8,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>
                         📋 Avaliações
                       </button>
+                      <button onClick={async()=>{
+                          const nova=prompt("Nova senha para "+u.nome+":");
+                          if(!nova||nova.length<4){alert("Senha muito curta.");return;}
+                          await sbFetch(`usuarios?id=eq.${u.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({senha_hash:simpleHash(nova)})});
+                          alert("Senha alterada com sucesso!");
+                        }} style={{padding:"5px 10px",borderRadius:8,border:"2px solid #f59e0b",background:"#fefce8",color:"#d97706",cursor:"pointer",fontSize:11,fontWeight:600}}>🔑 Senha</button>
                       <button onClick={async()=>{if(!confirm("Remover usuário?"))return;await deleteUsuario(u.id);setUsuarios(p=>p.filter(x=>x.id!==u.id));}}
                         style={{padding:"5px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600}}>Remover</button>
                     </div>
