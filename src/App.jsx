@@ -13,7 +13,17 @@ const SC = {0:"#94a3b8",1:"#ef4444",2:"#f97316",3:"#eab308",4:"#22c55e",5:"#10b9
 const DEFAULT_YESNO_LABELS = {1:"Sim", 2:"Atenção", 0:"Não"};
 const YESNO_COLORS = {1:"#ef4444", 2:"#f59e0b", 0:"#10b981"};
 // SCALE is built dynamically from org settings — see getScale() in App
-const CICLOS = ["2025 - 1º Semestre","2025 - 2º Semestre","2026 - 1º Semestre","2026 - 2º Semestre","2027 - 1º Semestre","2027 - 2º Semestre"];
+// Gera ciclos automaticamente: 2 anos atrás até 2 anos à frente
+function gerarCiclos() {
+  const ano = new Date().getFullYear();
+  const ciclos = [];
+  for(let a = ano-2; a <= ano+2; a++) {
+    ciclos.push(`${a} - 1º Semestre`);
+    ciclos.push(`${a} - 2º Semestre`);
+  }
+  return ciclos;
+}
+const CICLOS = gerarCiclos();
 const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal identificável é coletado. Os administradores do sistema visualizam apenas resultados agregados, sem identificação de quem respondeu. Os dados são utilizados exclusivamente para fins de desenvolvimento organizacional interno, conforme a LGPD (Lei nº 13.709/2018). Você pode interromper o preenchimento a qualquer momento.";
 
 const DEFAULT_FORMS = [
@@ -385,6 +395,157 @@ async function loadSharedReport(id) {
   } catch(e) { return null; }
 }
 
+// ─── NOTIFICAÇÕES ────────────────────────────────────────────────────
+const RESEND_API_KEY = "re_NfUGqMGi_Gsszdevn96xyGzQXTVMFsVHM";
+const TG_TOKEN = "8824247625:AAHoeo0HY8UdqDz-xlnOMW3W-TL6BHYrGU0";
+
+async function sendEmail({to, subject, html, fromEmail}){
+  try{
+    const from = fromEmail || "Avalie360 <noreply@avalie360.com.br>";
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {"Authorization": `Bearer ${RESEND_API_KEY}`,"Content-Type":"application/json"},
+      body: JSON.stringify({from, to, subject, html}),
+    });
+    return res.ok;
+  }catch(e){console.error("sendEmail:",e);return false;}
+}
+
+async function sendTelegram({chatId, text, botToken}){
+  try{
+    const token = botToken || TG_TOKEN;
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({chat_id:chatId,text,parse_mode:"HTML"}),
+    });
+    return res.ok;
+  }catch(e){console.error("sendTelegram:",e);return false;}
+}
+
+async function notifyUser({usuario, org, evento, extra={}}){
+  const orgName = org.name;
+  const loginUrl = `${org.baseUrl||"https://avalie360.vercel.app"}/${org.slug||""}/login`;
+
+  // Email
+  if(usuario.notify_email !== false && usuario.email){
+    let subject="", html="";
+    if(evento==="convite"){
+      subject=`Você tem avaliações para realizar — ${orgName}`;
+      html=`<h2>Olá, ${usuario.nome}!</h2><p>Você tem novas avaliações para realizar em <strong>${orgName}</strong>.</p><p><a href="${loginUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:16px">Acessar avaliações</a></p><p style="color:#94a3b8;font-size:12px;margin-top:24px">Em conformidade com a LGPD. Suas respostas são anônimas.</p><p style="color:#94a3b8;font-size:11px">Powered by Conectando Gente</p>`;
+    }else if(evento==="lembrete"){
+      subject=`Lembrete: avaliações pendentes — ${orgName}`;
+      html=`<h2>Olá, ${usuario.nome}!</h2><p>Você ainda tem avaliações pendentes em <strong>${orgName}</strong>.${extra.deadline?` Prazo: <strong>${extra.deadline}</strong>.`:""}</p><p><a href="${loginUrl}" style="background:#f59e0b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:16px">Responder agora</a></p><p style="color:#94a3b8;font-size:11px">Powered by Conectando Gente</p>`;
+    }else if(evento==="conclusao"){
+      subject=`Avaliação concluída — ${orgName}`;
+      html=`<h2>Obrigado, ${usuario.nome}!</h2><p>Sua avaliação em <strong>${orgName}</strong> foi registrada com sucesso.</p><p style="color:#94a3b8;font-size:12px">Respostas anônimas · LGPD conforme</p><p style="color:#94a3b8;font-size:11px">Powered by Conectando Gente</p>`;
+    }
+    await sendEmail({to:usuario.email, subject, html});
+  }
+
+  // Telegram
+  if(usuario.notify_telegram !== false && usuario.telegram_id){
+    let text="";
+    if(evento==="convite") text=`👋 Olá, ${usuario.nome}!\n\n📋 Você tem novas avaliações para realizar em <b>${orgName}</b>.\n\n🔗 <a href="${loginUrl}">Acessar avaliações</a>`;
+    else if(evento==="lembrete") text=`⏰ Lembrete, ${usuario.nome}!\n\n📋 Você ainda tem avaliações pendentes em <b>${orgName}</b>.${extra.deadline?`\n\n📅 Prazo: <b>${extra.deadline}</b>`:""}\n\n🔗 <a href="${loginUrl}">Responder agora</a>`;
+    else if(evento==="conclusao") text=`✅ Obrigado, ${usuario.nome}!\n\nSua avaliação em <b>${orgName}</b> foi registrada com sucesso.\n\n🔒 Respostas anônimas · LGPD conforme`;
+    await sendTelegram({chatId:usuario.telegram_id, text, botToken:org.telegram_bot_token||TG_TOKEN});
+  }
+}
+
+// ─── PROGRESSO DO FORMULÁRIO ─────────────────────────────────────────
+async function saveProgress({orgId, usuarioId, atribuicaoId, blocoIdx, answers, openAns}){
+  try{
+    const id=`${usuarioId}-${atribuicaoId}`;
+    const existing = await sbFetch(`form_progress?id=eq.${id}&select=id&limit=1`);
+    const data={id,org_id:orgId,usuario_id:usuarioId,atribuicao_id:atribuicaoId,bloco_idx:blocoIdx,answers,open_answers:openAns,updated_at:new Date().toISOString()};
+    if(existing&&existing.length>0){
+      await sbFetch(`form_progress?id=eq.${id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify({bloco_idx:blocoIdx,answers,open_answers:openAns,updated_at:new Date().toISOString()})});
+    }else{
+      await sbFetch("form_progress",{method:"POST",prefer:"return=minimal",body:JSON.stringify(data)});
+    }
+    return true;
+  }catch(e){return false;}
+}
+
+async function loadProgress(usuarioId, atribuicaoId){
+  try{
+    const id=`${usuarioId}-${atribuicaoId}`;
+    const rows = await sbFetch(`form_progress?id=eq.${id}&select=*&limit=1`);
+    if(rows&&rows.length>0) return rows[0];
+    return null;
+  }catch(e){return null;}
+}
+
+async function clearProgress(usuarioId, atribuicaoId){
+  try{
+    const id=`${usuarioId}-${atribuicaoId}`;
+    await sbFetch(`form_progress?id=eq.${id}`,{method:"DELETE",prefer:""});
+    return true;
+  }catch(e){return false;}
+}
+
+// ─── EXCEL IMPORT ────────────────────────────────────────────────────
+async function importUsuariosFromCSV(orgId, csvText) {
+  const lines = csvText.split("\n").filter(l=>l.trim());
+  const results = {ok:0, errors:[]};
+  // Skip header line
+  for(let i=1; i<lines.length; i++){
+    const cols = lines[i].split(",").map(s=>s.replace(/^"|"$/g,"").trim());
+    const [nome, email, senha, funcao, telegramId] = cols;
+    if(!nome||!email||!senha){ results.errors.push(`Linha ${i+1}: nome, email e senha são obrigatórios`); continue; }
+    const u = {
+      id: Math.random().toString(36).slice(2,12),
+      org_id: orgId, nome, email: email.toLowerCase(),
+      senha_hash: simpleHash(senha),
+      funcao: funcao||"", telegram_id: telegramId||"",
+      ativo: true, created_at: new Date().toISOString()
+    };
+    try {
+      await sbFetch("usuarios",{method:"POST",prefer:"resolution=merge-duplicates,return=minimal",body:JSON.stringify(u)});
+      results.ok++;
+    } catch(e) { results.errors.push(`Linha ${i+1}: erro ao cadastrar ${nome}`); }
+  }
+  return results;
+}
+
+async function importAvaliadosFromCSV(orgId, csvText) {
+  const lines = csvText.split("\n").filter(l=>l.trim());
+  const results = {ok:0, errors:[]};
+  for(let i=1; i<lines.length; i++){
+    const cols = lines[i].split(",").map(s=>s.replace(/^"|"$/g,"").trim());
+    const [nome, funcao] = cols;
+    if(!nome){ results.errors.push(`Linha ${i+1}: nome é obrigatório`); continue; }
+    const avSlug = slugify(nome).slice(0,30)||genId(8);
+    const av = {id:avSlug, org_id:orgId, nome, funcao:funcao||"", ativo:true, created_at:new Date().toISOString()};
+    try {
+      await sbFetch("avaliados",{method:"POST",prefer:"resolution=merge-duplicates,return=minimal",body:JSON.stringify(av)});
+      results.ok++;
+    } catch(e) { results.errors.push(`Linha ${i+1}: erro ao cadastrar ${nome}`); }
+  }
+  return results;
+}
+
+// ─── STATUS DASHBOARD ────────────────────────────────────────────────
+async function loadStatusDashboard(orgId, ciclo) {
+  try {
+    const [ats, users] = await Promise.all([
+      sbFetch(`atribuicoes?org_id=eq.${orgId}&ciclo=eq.${encodeURIComponent(ciclo)}&select=*`),
+      sbFetch(`usuarios?org_id=eq.${orgId}&ativo=eq.true&select=id,nome,email`)
+    ]);
+    const userMap = {};
+    (users||[]).forEach(u=>userMap[u.id]=u);
+    const byUser = {};
+    (ats||[]).forEach(at=>{
+      if(!byUser[at.usuario_id]) byUser[at.usuario_id]={usuario:userMap[at.usuario_id],total:0,concluidas:0,ats:[]};
+      byUser[at.usuario_id].total++;
+      if(at.concluida) byUser[at.usuario_id].concluidas++;
+      byUser[at.usuario_id].ats.push(at);
+    });
+    return Object.values(byUser);
+  } catch(e) { return []; }
+}
+
 async function loadAvaliados(orgId) {
   try {
     const rows = await sbFetch(`avaliados?org_id=eq.${orgId}&ativo=eq.true&select=*&order=nome.asc`);
@@ -412,6 +573,163 @@ async function deleteAvaliado(id) {
     return true;
   } catch(e) { return false; }
 }
+
+// ─── NOTIFICAÇÕES ────────────────────────────────────────────────────
+const RESEND_API_KEY = "re_NfUGqMGi_Gsszdevn96xyGzQXTVMFsVHM";
+const TELEGRAM_BOT_TOKEN = "8824247625:AAHoeo0HY8UdqDz-xlnOMW3W-TL6BHYrGU0";
+
+async function sendEmail({to, subject, html, fromName="Avalie 360°", fromEmail="noreply@avalie360.com.br"}) {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: `${fromName} <${fromEmail}>`, to: [to], subject, html }),
+    });
+    return res.ok;
+  } catch(e) { console.error("Email error:", e); return false; }
+}
+
+async function sendTelegram({chatId, message, token=TELEGRAM_BOT_TOKEN}) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
+    });
+    return res.ok;
+  } catch(e) { console.error("Telegram error:", e); return false; }
+}
+
+async function notifyUser({usuario, org, subject, message, htmlMessage}) {
+  const canal = usuario.notif_canal || org.notif_canal || "email";
+  const promises = [];
+  if((canal==="email"||canal==="ambos") && usuario.email) {
+    promises.push(sendEmail({
+      to: usuario.email, subject,
+      html: htmlMessage || `<p>${message}</p>`,
+      fromName: org.name,
+    }));
+  }
+  if((canal==="telegram"||canal==="ambos") && usuario.telegram_id) {
+    const tToken = org.telegram_token || TELEGRAM_BOT_TOKEN;
+    promises.push(sendTelegram({ chatId: usuario.telegram_id, message, token: tToken }));
+  }
+  return Promise.all(promises);
+}
+
+async function notifyAllPending(org, ciclo) {
+  try {
+    const usuarios = await loadUsuarios(org.id);
+    for(const u of usuarios) {
+      const ats = await loadAtribuicoes(u.id, ciclo);
+      const pendentes = ats.filter(a=>!a.concluida);
+      if(pendentes.length > 0) {
+        const lista = pendentes.map(a=>a.avaliado_nome?`• ${a.avaliado_nome}`:a.form_id).join("\n");
+        await notifyUser({
+          usuario: u, org,
+          subject: `Lembrete: você tem ${pendentes.length} avaliação(ões) pendente(s)`,
+          message: `Olá ${u.nome}! 👋\n\nVocê tem ${pendentes.length} avaliação(ões) pendente(s):\n${lista}\n\nAcesse: ${org.baseUrl||"avalie360.vercel.app"}/${org.slug||""}/login`,
+          htmlMessage: `<div style="font-family:sans-serif;max-width:500px"><h2>Olá, ${u.nome}! 👋</h2><p>Você tem <strong>${pendentes.length} avaliação(ões) pendente(s)</strong>:</p><ul>${pendentes.map(a=>`<li>${a.avaliado_nome||a.form_id}</li>`).join("")}</ul><a href="${org.baseUrl||"https://avalie360.vercel.app"}/${org.slug||""}/login" style="display:inline-block;padding:12px 24px;background:${org.primaryColor||"#2563eb"};color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Acessar avaliações →</a><p style="color:#94a3b8;font-size:12px;margin-top:24px">Powered by Conectando Gente</p></div>`,
+        });
+      }
+    }
+    return true;
+  } catch(e) { console.error("notifyAllPending:", e); return false; }
+}
+
+async function notifyOpenCiclo(org, ciclo) {
+  try {
+    const usuarios = await loadUsuarios(org.id);
+    for(const u of usuarios) {
+      await notifyUser({
+        usuario: u, org,
+        subject: `Novo ciclo de avaliação: ${ciclo}`,
+        message: `Olá ${u.nome}! 🎯\n\nO ciclo <b>${ciclo}</b> foi aberto em ${org.name}.\n\nAcesse: ${org.baseUrl||"avalie360.vercel.app"}/${org.slug||""}/login`,
+        htmlMessage: `<div style="font-family:sans-serif;max-width:500px"><h2>Novo ciclo aberto! 🎯</h2><p>Olá, <strong>${u.nome}</strong>!</p><p>O ciclo <strong>${ciclo}</strong> foi aberto em <strong>${org.name}</strong>.</p><a href="${org.baseUrl||"https://avalie360.vercel.app"}/${org.slug||""}/login" style="display:inline-block;padding:12px 24px;background:${org.primaryColor||"#2563eb"};color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Ver minhas avaliações →</a><p style="color:#94a3b8;font-size:12px;margin-top:24px">Powered by Conectando Gente</p></div>`,
+      });
+    }
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── PROGRESSO SALVO ─────────────────────────────────────────────────
+async function saveProgress(usuarioId, atribId, orgId, data) {
+  try {
+    const existing = await sbFetch(`form_progress?usuario_id=eq.${usuarioId}&atribuicao_id=eq.${atribId}&select=id&limit=1`);
+    if(existing && existing.length > 0) {
+      await sbFetch(`form_progress?id=eq.${existing[0].id}`, {
+        method: "PATCH", prefer: "return=minimal",
+        body: JSON.stringify({...data, updated_at: new Date().toISOString()}),
+      });
+    } else {
+      await sbFetch("form_progress", {
+        method: "POST", prefer: "return=minimal",
+        body: JSON.stringify({id: genId(12), usuario_id: usuarioId, atribuicao_id: atribId, org_id: orgId, ...data}),
+      });
+    }
+    return true;
+  } catch(e) { return false; }
+}
+
+async function loadProgress(usuarioId, atribId) {
+  try {
+    const rows = await sbFetch(`form_progress?usuario_id=eq.${usuarioId}&atribuicao_id=eq.${atribId}&select=*&limit=1`);
+    return rows && rows.length > 0 ? rows[0] : null;
+  } catch(e) { return null; }
+}
+
+async function clearProgress(usuarioId, atribId) {
+  try {
+    await sbFetch(`form_progress?usuario_id=eq.${usuarioId}&atribuicao_id=eq.${atribId}`, {method:"DELETE",prefer:""});
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── IMPORTAÇÃO EM MASSA ─────────────────────────────────────────────
+async function importUsuariosFromData(orgId, rows) {
+  const results = {success: 0, errors: []};
+  for(const row of rows) {
+    if(!row.nome||!row.email||!row.senha) { results.errors.push(`Linha inválida: ${row.email||"?"}`); continue; }
+    const u = {
+      id: genId(10), org_id: orgId,
+      nome: san(row.nome), email: row.email.toLowerCase().trim(),
+      senha_hash: simpleHash(row.senha),
+      notif_canal: row.canal||"email",
+      telegram_id: row.telegram_id||"",
+      ativo: true, created_at: new Date().toISOString()
+    };
+    const ok = await saveUsuario(u);
+    if(ok) results.success++; else results.errors.push(`Erro ao salvar: ${row.email}`);
+  }
+  return results;
+}
+
+async function importAvaliadosFromData(orgId, rows) {
+  const results = {success: 0, errors: []};
+  for(const row of rows) {
+    if(!row.nome) { results.errors.push("Nome obrigatório"); continue; }
+    const avSlug = slugify(row.nome).slice(0,30)||genId(8);
+    const av = {
+      id: avSlug, org_id: orgId,
+      nome: san(row.nome), funcao: san(row.funcao||""),
+      ativo: true, created_at: new Date().toISOString()
+    };
+    const ok = await saveAvaliado(av);
+    if(ok) results.success++; else results.errors.push(`Erro: ${row.nome}`);
+  }
+  return results;
+}
+
+// ─── AUDIT LOG ───────────────────────────────────────────────────────
+async function auditLog(orgId, usuarioId, acao, detalhes={}) {
+  try {
+    await sbFetch("audit_log", {
+      method: "POST", prefer: "return=minimal",
+      body: JSON.stringify({org_id: orgId, usuario_id: usuarioId, acao, detalhes}),
+    });
+  } catch(e) {}
+}
+
 
 // ─── USUARIOS & ATRIBUICOES ──────────────────────────────────────────
 async function loadUsuarios(orgId) {
@@ -776,7 +1094,17 @@ export default function App(){
   const [loginErr,setLoginErr]=useState("");
   const [showPwd,setShowPwd]=useState(false);
   const [forgotMode,setForgotMode]=useState(false);
-  const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
+  const [importingUsers,setImportingUsers]=useState(false);
+  const [importResult,setImportResult]=useState(null);
+  const [progressSaving,setProgressSaving]=useState(false);
+  const [sendingNotif,setSendingNotif]=useState(false);
+  const [dashTab2,setDashTab2]=useState("status"); // status | charts | reflexoes
+  const [showAtribuicoes,setShowAtribuicoes]=useState(null);
+  const [importTab,setImportTab]=useState(null); // 'usuarios' | 'avaliados' | null
+  const [importResult,setImportResult]=useState(null);
+  const [notifSending,setNotifSending]=useState(false);
+  const [notifSent,setNotifSent]=useState(false);
+  const [progressData,setProgressData]=useState(null);
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
   const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
 
@@ -1023,8 +1351,12 @@ export default function App(){
     // Mark atribuição as done if came from user dashboard
     if(atribucaoAtual){
       await marcarAtribuicaoConcluida(atribucaoAtual.id);
+      if(usuarioLogado) await clearProgress(usuarioLogado.id, atribucaoAtual.id);
       setAtribuicoes(p=>p.map(a=>a.id===atribucaoAtual.id?{...a,concluida:true}:a));
       setAtribucaoAtual(null);
+      if(usuarioLogado&&org) notifyUser({usuario:usuarioLogado,org,evento:"conclusao"}).catch(()=>{});
+      // Audit log
+      if(org&&usuarioLogado) auditLog(org.id, usuarioLogado.id, "avaliacao_concluida", {formId:fForm.id, avaliadoNome:urlAvaliadoNome||""});
     }
     setSaving(false);setScreen(usuarioLogado?"user_dash":"result");
   }
@@ -1231,6 +1563,16 @@ export default function App(){
             <button onClick={()=>setScreen("editor")} style={{...hBtn,background:"#f59e0b",fontWeight:700}}>✏️ Formulários</button>
             <button onClick={()=>setScreen("avaliados")} style={{...hBtn,background:"#8b5cf6",fontWeight:700}}>👥 Avaliados</button>
             <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{...hBtn,background:"#0891b2",fontWeight:700}}>🔑 Usuários</button>
+            <button onClick={()=>setScreen("import")} style={{...hBtn,background:"#059669",fontWeight:700}}>📥 Importar</button>
+            <button onClick={async()=>{
+              if(!confirm(`Enviar lembrete para todos com avaliações pendentes no ciclo ${dci}?`)) return;
+              setNotifSending(true);
+              await notifyAllPending(org, dci);
+              setNotifSending(false);setNotifSent(true);
+              setTimeout(()=>setNotifSent(false),3000);
+            }} style={{...hBtn,background:notifSent?"#16a34a":notifSending?"#94a3b8":"#7c3aed",fontWeight:700}}>
+              {notifSending?"⏳ Enviando...":notifSent?"✓ Enviado":"🔔 Lembrar"}
+            </button>
             <button onClick={()=>setScreen("settings")} style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>⚙️ Config</button>
             <button onClick={()=>{setScreen("home");setOrg(null);}} style={{...hBtn,background:"rgba(255,255,255,0.15)"}}>Sair</button>
           </div>
@@ -1538,7 +1880,16 @@ export default function App(){
           <button onClick={()=>fbi===0?setScreen("lgpd"):setFbi(b=>b-1)} style={{...btnO,flex:1,borderRadius:12,padding:"13px 0"}}>← Voltar</button>
           {isLast
             ?<button onClick={submitForm} disabled={saving} style={{...btn(pc),flex:2,borderRadius:12,padding:"13px 0",opacity:saving?0.6:1,fontSize:14}}>{saving?"Salvando…":"Enviar avaliação ✓"}</button>
-            :<button onClick={()=>setFbi(b=>b+1)} style={{...btn(pc),flex:2,borderRadius:12,padding:"13px 0",fontSize:14}}>Próximo →</button>
+            :<button onClick={async()=>{
+                if(usuarioLogado&&atribucaoAtual){
+                  setProgressSaving(true);
+                  await saveProgress({orgId:org.id,usuarioId:usuarioLogado.id,atribuicaoId:atribucaoAtual.id,blocoIdx:fbi+1,answers,openAns});
+                  setProgressSaving(false);
+                }
+                setFbi(b=>b+1);
+              }} style={{...btn(pc),flex:2,borderRadius:12,padding:"13px 0",fontSize:14}}>
+                {progressSaving?"Salvando…":"Próximo →"}
+              </button>
           }
         </div>
       </div>
@@ -1827,12 +2178,23 @@ export default function App(){
                   {!at.concluida&&(
                     <button onClick={()=>{
                       const idx=forms.findIndex(f=>f.id===at.form_id);
-                      setFfi(idx);setFbi(0);setAnswers({});setOpenAns({});
+                      setFfi(idx);
                       setUrlAvaliadoNome(at.avaliado_nome||"");
                       setUrlAvaliadoId(at.avaliado_id||"");
                       setAtribucaoAtual(at);
                       setLgpd(false);
-                      setScreen("lgpd");
+                      // Load saved progress
+                      loadProgress(usuarioLogado.id, at.id).then(prog=>{
+                        if(prog){
+                          setAnswers(prog.answers||{});
+                          setOpenAns(prog.open_answers||{});
+                          setFbi(prog.bloco_idx||0);
+                          setProgressData(prog);
+                        } else {
+                          setAnswers({});setOpenAns({});setFbi(0);setProgressData(null);
+                        }
+                        setScreen("lgpd");
+                      });
                     }} style={{...btn(org.primaryColor||"#2563eb"),padding:"8px 16px",fontSize:12}}>
                       Responder →
                     </button>
@@ -1927,6 +2289,111 @@ export default function App(){
                 </div>
               ))
             }
+          </div>
+        </div>
+        <PoweredBy/>
+      </div>
+    );
+  }
+
+  // ── IMPORT SCREEN ──
+  if(screen==="import"&&org){
+    const [importing,setImporting]=useState(false);
+
+    async function handleImportFile(tipo, file){
+      if(!file) return;
+      setImporting(true);
+      setImportResult(null);
+      try{
+        const text = await file.text();
+        const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
+        const headers = lines[0].split(",").map(h=>h.trim().toLowerCase().replace(/\s/g,"_"));
+        const rows = lines.slice(1).map(line=>{
+          const vals = line.split(",").map(v=>v.trim().replace(/^"|"$/g,""));
+          const obj={};
+          headers.forEach((h,i)=>obj[h]=vals[i]||"");
+          return obj;
+        });
+        let result;
+        if(tipo==="usuarios") result=await importUsuariosFromData(org.id,rows);
+        else result=await importAvaliadosFromData(org.id,rows);
+        setImportResult({tipo,result});
+        if(tipo==="usuarios"){const u=await loadUsuarios(org.id);setUsuarios(u);}
+        else{const av=await loadAvaliados(org.id);setAvaliados(av);}
+      }catch(e){setImportResult({tipo,error:e.message});}
+      setImporting(false);
+    }
+
+    return(
+      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
+          <div><div style={{fontWeight:800,fontSize:15}}>📥 Importação em Massa — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Importe usuários e avaliados via planilha CSV</div></div>
+          <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+        </div>
+        <div style={{maxWidth:720,margin:"0 auto",padding:"24px 16px 60px"}}>
+          {/* Template download */}
+          <div style={{...card,marginBottom:20,background:"#eff6ff",border:"1px solid #bfdbfe"}}>
+            <h3 style={{color:"#1e3a8a",marginBottom:10,fontSize:15}}>📋 Templates CSV</h3>
+            <p style={{fontSize:12,color:"#475569",marginBottom:12}}>Baixe o template, preencha e importe. Use vírgula como separador.</p>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button onClick={()=>{
+                const csv="nome,email,senha,canal,telegram_id\nJoão Silva,joao@org.com,senha123,email,\nMaria Souza,maria@org.com,senha456,ambos,123456789";
+                const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+                a.download="template_usuarios.csv";a.click();
+              }} style={{...btn("#2563eb"),fontSize:12,padding:"8px 16px"}}>⬇️ Template Usuários</button>
+              <button onClick={()=>{
+                const csv="nome,funcao\nCassiano Luz,Diretor Executivo\nDalete Passos,Gerente Financeira";
+                const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+                a.download="template_avaliados.csv";a.click();
+              }} style={{...btn("#8b5cf6"),fontSize:12,padding:"8px 16px"}}>⬇️ Template Avaliados</button>
+            </div>
+          </div>
+          {/* Import usuarios */}
+          <div style={{...card,marginBottom:20}}>
+            <h3 style={{color:"#1e3a8a",marginBottom:8,fontSize:15}}>🔑 Importar Usuários (avaliadores)</h3>
+            <p style={{fontSize:12,color:"#94a3b8",marginBottom:12}}>Colunas: nome, email, senha, canal (email/telegram/ambos), telegram_id</p>
+            <input type="file" accept=".csv,.txt" onChange={e=>handleImportFile("usuarios",e.target.files[0])}
+              style={{width:"100%",padding:"12px",borderRadius:10,border:"2px dashed #dbeafe",background:"#f8faff",cursor:"pointer",fontSize:13}}/>
+          </div>
+          {/* Import avaliados */}
+          <div style={{...card,marginBottom:20}}>
+            <h3 style={{color:"#1e3a8a",marginBottom:8,fontSize:15}}>👥 Importar Avaliados</h3>
+            <p style={{fontSize:12,color:"#94a3b8",marginBottom:12}}>Colunas: nome, funcao</p>
+            <input type="file" accept=".csv,.txt" onChange={e=>handleImportFile("avaliados",e.target.files[0])}
+              style={{width:"100%",padding:"12px",borderRadius:10,border:"2px dashed #dbeafe",background:"#f8faff",cursor:"pointer",fontSize:13}}/>
+          </div>
+          {/* Result */}
+          {importing&&<div style={{...card,textAlign:"center",padding:32}}><div style={{fontSize:32}}>⏳</div><p style={{color:"#64748b",marginTop:12}}>Importando...</p></div>}
+          {importResult&&!importing&&(
+            <div style={{...card,background:importResult.error?"#fef2f2":"#f0fdf4",border:`1px solid ${importResult.error?"#fecaca":"#bbf7d0"}`}}>
+              {importResult.error?(
+                <><h3 style={{color:"#dc2626"}}>❌ Erro na importação</h3><p style={{fontSize:13,color:"#dc2626"}}>{importResult.error}</p></>
+              ):(
+                <><h3 style={{color:"#166534"}}>✅ Importação concluída</h3>
+                <p style={{fontSize:13,color:"#166534"}}>{importResult.result.success} registro(s) importado(s) com sucesso.</p>
+                {importResult.result.errors.length>0&&<><p style={{fontSize:12,color:"#dc2626",marginTop:8}}>Erros:</p><ul style={{fontSize:11,color:"#dc2626"}}>{importResult.result.errors.map((e,i)=><li key={i}>{e}</li>)}</ul></>}
+                </>
+              )}
+            </div>
+          )}
+          {/* Notification settings */}
+          <div style={{...card,marginTop:20}}>
+            <h3 style={{color:"#1e3a8a",marginBottom:12,fontSize:15}}>🔔 Configurações de Notificação</h3>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>CANAL PADRÃO DA ORGANIZAÇÃO</label>
+              <select value={cfg?.notif_canal||"email"} onChange={e=>setCfg(p=>({...p,notif_canal:e.target.value}))}
+                style={{...inp,width:"auto"}}>
+                <option value="email">📧 Email</option>
+                <option value="telegram">✈️ Telegram</option>
+                <option value="ambos">📧 + ✈️ Ambos</option>
+              </select>
+            </div>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>TOKEN DO BOT TELEGRAM (opcional)</label>
+              <input value={cfg?.telegram_token||""} onChange={e=>setCfg(p=>({...p,telegram_token:e.target.value}))} style={inp} placeholder="Ex: 123456:ABC..."/>
+              <p style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Deixe em branco para usar o bot padrão do Avalie360</p>
+            </div>
+            <button onClick={saveCfg} style={{...btn(pc)}}>💾 Salvar configurações</button>
           </div>
         </div>
         <PoweredBy/>
