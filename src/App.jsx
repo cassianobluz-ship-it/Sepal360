@@ -753,6 +753,7 @@ export default function App(){
   const [ciclo,setCiclo]=useState(CICLOS[0]);const [lgpd,setLgpd]=useState(false);
   const [saving,setSaving]=useState(false);
   const [dfi,setDfi]=useState(0);const [dci,setDci]=useState(CICLOS[0]);const [repCopied,setRepCopied]=useState(false);
+  const [showLinks,setShowLinks]=useState(false);
   const [efi,setEfi]=useState(0);const [ebi,setEbi]=useState(0);
   const [nOrg,setNOrg]=useState({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:""});const [nOrgE,setNOrgE]=useState("");
   const [editingOrg,setEditingOrg]=useState(null); // org being edited in super admin
