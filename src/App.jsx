@@ -1507,21 +1507,7 @@ export default function App(){
                 })}
               </div>
             ) : (
-               {fBloc.scaleType==="yesno"?(
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                {[1,2,0].map(v=>{
-                  const sel=answers[`${fBloc.id}_${i}`]===v;
-                  const label=yesnoLabels[v]||DEFAULT_YESNO_LABELS[v];
-                  const col=YESNO_COLORS[v];
-                  return(<button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
-                    style={{padding:"14px 8px",borderRadius:12,border:`2px solid ${sel?col:"#e2e8f0"}`,
-                      background:sel?col:"#fff",color:sel?"#fff":"#475569",
-                      cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.15s"}}>
-                    {label}
-                  </button>);
-                })}
-              </div>
-            ):(           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
                 {[1,2,3,4,5,0].map(v=>{
                   const sel=answers[`${fBloc.id}_${i}`]===v;
                   const label=scaleLabels[v]||DEFAULT_SCALE_LABELS[v];
