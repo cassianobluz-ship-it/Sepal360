@@ -785,7 +785,6 @@ export default function App(){
   const [importResult,setImportResult]=useState(null);
   const [notifSending,setNotifSending]=useState(false);
   const [progressSaving,setProgressSaving]=useState(false);
-  const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
 
   useEffect(()=>{
     async function init(){
