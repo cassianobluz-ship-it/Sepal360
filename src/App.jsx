@@ -507,6 +507,105 @@ async function resetAtribuicao(atribId) {
   } catch(e) { return false; }
 }
 
+// ─── FORM PROGRESS ───────────────────────────────────────────
+async function saveProgress(usuarioId, atribuicaoId, orgId, blocoAtual, answers, openAnswers) {
+  try {
+    const id = `${usuarioId}_${atribuicaoId}`;
+    const existing = await sbFetch(`form_progress?id=eq.${encodeURIComponent(id)}&select=id&limit=1`).catch(()=>null);
+    if (existing && existing.length > 0) {
+      await sbFetch(`form_progress?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH", prefer: "return=minimal",
+        body: JSON.stringify({ bloco_atual: blocoAtual, answers, open_answers: openAnswers, updated_at: new Date().toISOString() }),
+      });
+    } else {
+      await sbFetch("form_progress", {
+        method: "POST", prefer: "return=minimal",
+        body: JSON.stringify({ id, org_id: orgId, usuario_id: usuarioId, atribuicao_id: atribuicaoId, bloco_atual: blocoAtual, answers, open_answers: openAnswers }),
+      });
+    }
+    return true;
+  } catch(e) { console.error("saveProgress:", e); return false; }
+}
+
+async function loadProgress(usuarioId, atribuicaoId) {
+  try {
+    const id = `${usuarioId}_${atribuicaoId}`;
+    const rows = await sbFetch(`form_progress?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+    if (rows && rows.length > 0) return rows[0];
+    return null;
+  } catch(e) { return null; }
+}
+
+async function deleteProgress(usuarioId, atribuicaoId) {
+  try {
+    const id = `${usuarioId}_${atribuicaoId}`;
+    await sbFetch(`form_progress?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", prefer: "" });
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── USUARIO SENHA ───────────────────────────────────────────
+async function updateUsuarioSenha(usuarioId, novaSenha) {
+  try {
+    await sbFetch(`usuarios?id=eq.${usuarioId}`, {
+      method: "PATCH", prefer: "return=minimal",
+      body: JSON.stringify({ senha_hash: simpleHash(novaSenha) }),
+    });
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── IMPORTAÇÃO EM MASSA ─────────────────────────────────────
+// Importa lista de {nome, email, funcao} — cria usuario + avaliado vinculados
+async function importarUsuarios(orgId, lista) {
+  const SENHA_PADRAO = "avalie360";
+  const hash = simpleHash(SENHA_PADRAO);
+  const resultados = { criados: 0, erros: [] };
+
+  for (const item of lista) {
+    try {
+      const usuarioId = genId(10);
+      const avaliadoId = slugify(item.nome).slice(0, 30) + "-" + genId(4);
+
+      // Criar usuário
+      await sbFetch("usuarios", {
+        method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+        body: JSON.stringify({
+          id: usuarioId, org_id: orgId,
+          nome: san(item.nome), email: item.email.toLowerCase().trim(),
+          senha_hash: hash, ativo: true,
+          created_at: new Date().toISOString(),
+        }),
+      });
+
+      // Criar avaliado vinculado ao usuário
+      await sbFetch("avaliados", {
+        method: "POST", prefer: "resolution=merge-duplicates,return=minimal",
+        body: JSON.stringify({
+          id: avaliadoId, org_id: orgId,
+          nome: san(item.nome), funcao: san(item.funcao || ""),
+          usuario_id: usuarioId, ativo: true,
+          created_at: new Date().toISOString(),
+        }),
+      });
+
+      resultados.criados++;
+    } catch(e) {
+      resultados.erros.push({ nome: item.nome, email: item.email, erro: e.message });
+    }
+  }
+  return resultados;
+}
+
+// Busca usuários existentes por email para detectar duplicatas
+async function verificarEmailsExistentes(orgId, emails) {
+  try {
+    const rows = await sbFetch(`usuarios?org_id=eq.${orgId}&ativo=eq.true&select=email,nome`);
+    const existentes = new Set((rows || []).map(r => r.email.toLowerCase()));
+    return emails.filter(e => existentes.has(e.toLowerCase()));
+  } catch(e) { return []; }
+}
+
 async function loadOrgBySlug(slug) {
   try {
     // Try exact slug match first
@@ -784,6 +883,17 @@ export default function App(){
   const [importResult,setImportResult]=useState(null);
   const [notifSending,setNotifSending]=useState(false);
   const [progressSaving,setProgressSaving]=useState(false);
+  // Importação Excel
+  const [importando,setImportando]=useState(false);
+  const [importPreview,setImportPreview]=useState(null);
+  const [importDuplicatas,setImportDuplicatas]=useState([]);
+  const [importDecisoes,setImportDecisoes]=useState({});
+  const [importFinalResult,setImportFinalResult]=useState(null);
+  // Troca de senha do usuário
+  const [showTrocaSenha,setShowTrocaSenha]=useState(false);
+  const [novaSenha,setNovaSenha]=useState("");
+  const [confirmaSenha,setConfirmaSenha]=useState("");
+  const [trocaSenhaMsg,setTrocaSenhaMsg]=useState("");
 
   useEffect(()=>{
     async function init(){
@@ -1028,9 +1138,10 @@ export default function App(){
     // Mark atribuição as done if came from user dashboard
     if(atribucaoAtual){
       await marcarAtribuicaoConcluida(atribucaoAtual.id);
+      // Limpar progresso salvo
+      if(usuarioLogado) await deleteProgress(usuarioLogado.id, atribucaoAtual.id);
       setAtribuicoes(p=>p.map(a=>a.id===atribucaoAtual.id?{...a,concluida:true}:a));
       setAtribucaoAtual(null);
-      if(usuarioLogado&&org) notifyUser(usuarioLogado,org,"conclusao");
     }
     setSaving(false);setScreen(usuarioLogado?"user_dash":"result");
   }
@@ -1797,6 +1908,54 @@ export default function App(){
           style={{background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:600}}>Sair</button>
       </div>
       <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
+        {/* Banner senha padrão */}
+        {usuarioLogado && usuarioLogado.senha_hash === simpleHash("avalie360") && !showTrocaSenha && (
+          <div style={{background:"#fefce8",borderRadius:12,padding:"12px 16px",border:"1px solid #fde68a",marginBottom:20,fontSize:13,color:"#92400e",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <span>🔑 Você está usando a senha padrão.</span>
+            <button onClick={()=>setShowTrocaSenha(true)}
+              style={{padding:"5px 12px",borderRadius:8,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,marginLeft:"auto"}}>
+              Alterar agora
+            </button>
+            <button onClick={()=>setShowTrocaSenha(false)}
+              style={{padding:"5px 10px",borderRadius:8,border:"1px solid #fde68a",background:"transparent",color:"#92400e",cursor:"pointer",fontSize:11}}>
+              Depois
+            </button>
+          </div>
+        )}
+        {/* Painel troca de senha */}
+        {showTrocaSenha && (
+          <div style={{background:"#fff",borderRadius:16,padding:20,border:"1px solid #dbeafe",marginBottom:20,boxShadow:"0 2px 8px #0001"}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>🔑 Alterar senha</h3>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <input type="password" placeholder="Nova senha" value={novaSenha}
+                onChange={e=>setNovaSenha(e.target.value)}
+                style={{padding:"12px 14px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}/>
+              <input type="password" placeholder="Confirmar nova senha" value={confirmaSenha}
+                onChange={e=>setConfirmaSenha(e.target.value)}
+                style={{padding:"12px 14px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}/>
+              {trocaSenhaMsg && <p style={{fontSize:12,color:trocaSenhaMsg.includes("sucesso")?"#16a34a":"#ef4444",margin:0}}>{trocaSenhaMsg}</p>}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={async()=>{
+                  if(novaSenha.length < 6){setTrocaSenhaMsg("Senha deve ter pelo menos 6 caracteres.");return;}
+                  if(novaSenha !== confirmaSenha){setTrocaSenhaMsg("As senhas não coincidem.");return;}
+                  const ok = await updateUsuarioSenha(usuarioLogado.id, novaSenha);
+                  if(ok){
+                    setUsuarioLogado(p=>({...p,senha_hash:simpleHash(novaSenha)}));
+                    setTrocaSenhaMsg("✓ Senha alterada com sucesso!");
+                    setNovaSenha(""); setConfirmaSenha("");
+                    setTimeout(()=>{setShowTrocaSenha(false);setTrocaSenhaMsg("");},2000);
+                  } else { setTrocaSenhaMsg("Erro ao alterar senha. Tente novamente."); }
+                }} style={{padding:"10px 20px",borderRadius:10,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13}}>
+                  Salvar
+                </button>
+                <button onClick={()=>{setShowTrocaSenha(false);setNovaSenha("");setConfirmaSenha("");setTrocaSenhaMsg("");}}
+                  style={{padding:"10px 16px",borderRadius:10,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:13}}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
           <div>
             <h2 style={{color:"#1e3a8a",fontSize:16,margin:0}}>Suas avaliações</h2>
@@ -1837,14 +1996,23 @@ export default function App(){
                     {at.concluida&&<div style={{fontSize:11,color:"#10b981",marginTop:2}}>✓ Concluída</div>}
                   </div>
                   {!at.concluida&&(
-                    <button onClick={()=>{
+                    <button onClick={async()=>{
                       const idx=forms.findIndex(f=>f.id===at.form_id);
-                      setFfi(idx);setFbi(0);setAnswers({});setOpenAns({});
+                      setFfi(idx);
                       setUrlAvaliadoNome(at.avaliado_nome||"");
                       setUrlAvaliadoId(at.avaliado_id||"");
                       setAtribucaoAtual(at);
                       setLgpd(false);
-                      setScreen("lgpd");
+                      // Carregar progresso salvo se existir
+                      const prog = usuarioLogado ? await loadProgress(usuarioLogado.id, at.id) : null;
+                      if(prog){
+                        setFbi(prog.bloco_atual||0);
+                        setAnswers(prog.answers||{});
+                        setOpenAns(prog.open_answers||{});
+                      } else {
+                        setFbi(0);setAnswers({});setOpenAns({});
+                      }
+                      setScreen(prog?"form":"lgpd");
                     }} style={{...btn(org.primaryColor||"#2563eb"),padding:"8px 16px",fontSize:12}}>
                       Responder →
                     </button>
@@ -1869,7 +2037,10 @@ export default function App(){
       <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc2),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>🔑 Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre os avaliadores e configure suas avaliações</div></div>
-          <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...hBtn,background:"#16a34a",fontWeight:700}}>📥 Importar Excel</button>
+            <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+          </div>
         </div>
         <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
@@ -1940,6 +2111,250 @@ export default function App(){
               ))
             }
           </div>
+        </div>
+        <PoweredBy/>
+      </div>
+    );
+  }
+
+  // ── IMPORTAÇÃO DE USUÁRIOS ──
+  if(screen==="importar_usuarios"&&org){
+    const pc3=org.primaryColor||"#2563eb";
+
+    function parseExcel(file){
+      return new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=e=>{
+          try{
+            // Lê o arquivo como texto e tenta parsear como CSV ou TSV
+            const text=e.target.result;
+            const lines=text.split(/\r?\n/).filter(l=>l.trim());
+            if(lines.length<2){reject("Arquivo vazio ou sem dados.");return;}
+            // Detecta separador (vírgula ou ponto-e-vírgula ou tab)
+            const sep=lines[0].includes(";")?";":(lines[0].includes("\t")?"\t":",");
+            const headers=lines[0].split(sep).map(h=>h.trim().toLowerCase().replace(/['"]/g,""));
+            // Mapeia colunas flexivelmente
+            const iNome=headers.findIndex(h=>h.includes("nome")||h.includes("name"));
+            const iEmail=headers.findIndex(h=>h.includes("email")||h.includes("e-mail"));
+            const iFuncao=headers.findIndex(h=>h.includes("fun")||h.includes("cargo")||h.includes("role")||h.includes("posi"));
+            if(iNome===-1||iEmail===-1){reject("Colunas obrigatórias não encontradas. Verifique se há colunas 'Nome' e 'Email'.");return;}
+            const dados=[];
+            for(let i=1;i<lines.length;i++){
+              const cols=lines[i].split(sep).map(c=>c.trim().replace(/^["']|["']$/g,""));
+              const nome=cols[iNome]||"";
+              const email=cols[iEmail]||"";
+              const funcao=iFuncao>=0?(cols[iFuncao]||""):"";
+              if(!nome||!email||!email.includes("@")) continue;
+              dados.push({nome,email:email.toLowerCase(),funcao});
+            }
+            if(dados.length===0){reject("Nenhuma linha válida encontrada.");return;}
+            resolve(dados);
+          }catch(err){reject("Erro ao processar arquivo: "+err.message);}
+        };
+        reader.onerror=()=>reject("Erro ao ler arquivo.");
+        // Tenta como texto primeiro (CSV/TSV exportado do Excel)
+        reader.readAsText(file,"UTF-8");
+      });
+    }
+
+    async function handleFileUpload(file){
+      if(!file) return;
+      const ext=file.name.split(".").pop().toLowerCase();
+      if(!["csv","txt","tsv"].includes(ext)){
+        alert("Por favor, exporte sua planilha como CSV antes de importar.\n\nNo Excel: Arquivo → Salvar Como → CSV (separado por vírgulas)");
+        return;
+      }
+      setImportando(true);
+      setImportFinalResult(null);
+      try{
+        const dados=await parseExcel(file);
+        // Verificar duplicatas
+        const emails=dados.map(d=>d.email);
+        const dups=await verificarEmailsExistentes(org.id,emails);
+        setImportPreview(dados);
+        setImportDuplicatas(dups);
+        // Decisão padrão para duplicatas: manter
+        const dec={};
+        dups.forEach(e=>{dec[e]="manter";});
+        setImportDecisoes(dec);
+      }catch(err){
+        alert("Erro: "+err);
+      }
+      setImportando(false);
+    }
+
+    async function confirmarImportacao(){
+      if(!importPreview) return;
+      setImportando(true);
+      // Filtrar lista final conforme decisões de duplicatas
+      const listaFinal=importPreview.filter(item=>{
+        const dup=importDuplicatas.includes(item.email);
+        if(!dup) return true; // não é duplicata, inclui
+        return importDecisoes[item.email]==="substituir"; // duplicata: inclui só se substituir
+      });
+      if(listaFinal.length===0){
+        alert("Nenhum usuário para importar após aplicar as decisões de duplicata.");
+        setImportando(false);
+        return;
+      }
+      const result=await importarUsuarios(org.id,listaFinal);
+      // Recarregar usuários e avaliados
+      const [us,avs]=await Promise.all([loadUsuarios(org.id),loadAvaliados(org.id)]);
+      setUsuarios(us);setAvaliados(avs);
+      setImportFinalResult({...result,total:listaFinal.length,ignorados:importPreview.length-listaFinal.length});
+      setImportando(false);
+    }
+
+    const uid="imp-file-"+Math.random().toString(36).slice(2,6);
+    return(
+      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        <div style={{...hdr(pc3),position:"sticky",top:0,zIndex:20}}>
+          <div><div style={{fontWeight:800,fontSize:15}}>📥 Importar Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Importe em massa via planilha Excel</div></div>
+          <button onClick={()=>setScreen("usuarios")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+        </div>
+        <div style={{maxWidth:720,margin:"0 auto",padding:"24px 16px 60px"}}>
+
+          {/* Resultado final */}
+          {importFinalResult&&(
+            <div style={{background:importFinalResult.erros.length===0?"#f0fdf4":"#fefce8",borderRadius:16,padding:20,border:`1px solid ${importFinalResult.erros.length===0?"#bbf7d0":"#fde68a"}`,marginBottom:24}}>
+              <h3 style={{color:importFinalResult.erros.length===0?"#166534":"#92400e",fontSize:15,marginBottom:12}}>
+                {importFinalResult.erros.length===0?"✅ Importação concluída!":"⚠️ Importação concluída com avisos"}
+              </h3>
+              <p style={{fontSize:13,color:"#475569",marginBottom:8}}>
+                <strong>{importFinalResult.criados}</strong> usuário(s) importado(s) com sucesso.
+                {importFinalResult.ignorados>0&&<span> · <strong>{importFinalResult.ignorados}</strong> ignorado(s) por duplicata.</span>}
+              </p>
+              {importFinalResult.erros.length>0&&(
+                <div style={{marginTop:12}}>
+                  <p style={{fontSize:12,fontWeight:700,color:"#92400e",marginBottom:8}}>Erros:</p>
+                  {importFinalResult.erros.map((e,i)=>(
+                    <div key={i} style={{fontSize:12,color:"#dc2626",background:"#fee2e2",borderRadius:8,padding:"6px 10px",marginBottom:4}}>
+                      {e.nome} ({e.email}): {e.erro}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);}}
+                style={{marginTop:12,...btn(pc3),fontSize:12}}>Nova importação</button>
+            </div>
+          )}
+
+          {/* Instruções */}
+          {!importPreview&&!importFinalResult&&(
+            <div style={{...card,marginBottom:20}}>
+              <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>📋 Como preparar a planilha</h3>
+              <p style={{fontSize:13,color:"#475569",marginBottom:12}}>Sua planilha deve ter as seguintes colunas (a ordem não importa):</p>
+              <div style={{background:"#f8faff",borderRadius:10,padding:16,border:"1px solid #dbeafe",marginBottom:16,fontFamily:"monospace",fontSize:12}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  {["Nome *","Email *","Função"].map(c=>(
+                    <div key={c} style={{background:"#fff",borderRadius:8,padding:"8px 12px",border:"1px solid #bfdbfe",fontWeight:700,color:"#1e3a8a",textAlign:"center"}}>{c}</div>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:8}}>
+                  {[["Cassiano Luz","cassiano@sepal.org","Diretor Executivo"],["Maria Silva","maria@sepal.org","Missionária"]].map((row,i)=>
+                    row.map((c,j)=><div key={`${i}-${j}`} style={{background:"#f8faff",borderRadius:8,padding:"6px 10px",border:"1px solid #e2e8f0",fontSize:11,color:"#475569"}}>{c}</div>)
+                  )}
+                </div>
+              </div>
+              <div style={{background:"#fefce8",borderRadius:10,padding:"10px 14px",border:"1px solid #fde68a",fontSize:12,color:"#92400e",marginBottom:16}}>
+                ⚠️ <strong>Antes de fazer upload:</strong> No Excel, vá em <strong>Arquivo → Salvar Como → CSV (separado por vírgulas)</strong>. O sistema aceita arquivos <strong>.csv</strong>.
+              </div>
+              <p style={{fontSize:12,color:"#64748b",marginBottom:4}}>
+                🔑 Todos os usuários serão criados com a senha padrão <strong>"avalie360"</strong>. Cada pessoa poderá alterá-la no primeiro acesso.
+              </p>
+              <p style={{fontSize:12,color:"#64748b"}}>
+                👥 Cada pessoa importada será criada como <strong>usuário</strong> (pode fazer login e avaliar) e como <strong>avaliado</strong> (pode ser avaliado). Você define quem avalia quem depois.
+              </p>
+            </div>
+          )}
+
+          {/* Upload */}
+          {!importPreview&&!importFinalResult&&(
+            <div style={{...card,marginBottom:20}}>
+              <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>📤 Selecionar arquivo</h3>
+              <div
+                onDragOver={e=>e.preventDefault()}
+                onDrop={e=>{e.preventDefault();handleFileUpload(e.dataTransfer.files[0]);}}
+                onClick={()=>document.getElementById(uid).click()}
+                style={{border:"2px dashed #bfdbfe",borderRadius:14,padding:32,textAlign:"center",cursor:"pointer",background:"#f8faff",transition:"all 0.2s"}}>
+                <div style={{fontSize:36,marginBottom:8}}>📊</div>
+                <p style={{fontSize:13,color:"#64748b",margin:0,fontWeight:600}}>Clique ou arraste seu arquivo CSV aqui</p>
+                <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Arquivos .csv exportados do Excel</p>
+              </div>
+              <input id={uid} type="file" accept=".csv,.txt,.tsv" style={{display:"none"}}
+                onChange={e=>handleFileUpload(e.target.files[0])}/>
+              {importando&&<p style={{textAlign:"center",color:"#64748b",fontSize:13,marginTop:12}}>⏳ Processando arquivo…</p>}
+            </div>
+          )}
+
+          {/* Preview e duplicatas */}
+          {importPreview&&!importFinalResult&&(
+            <>
+              {/* Duplicatas */}
+              {importDuplicatas.length>0&&(
+                <div style={{...card,marginBottom:20,border:"1px solid #fde68a",background:"#fefce8"}}>
+                  <h3 style={{color:"#92400e",fontSize:15,marginBottom:4}}>⚠️ Emails já cadastrados ({importDuplicatas.length})</h3>
+                  <p style={{fontSize:12,color:"#92400e",marginBottom:16}}>Decida o que fazer com cada um:</p>
+                  {importDuplicatas.map(email=>{
+                    const pessoa=importPreview.find(p=>p.email===email);
+                    return(
+                      <div key={email} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:"#fff",borderRadius:10,border:"1px solid #fde68a",marginBottom:8,flexWrap:"wrap"}}>
+                        <div style={{flex:1,minWidth:120}}>
+                          <div style={{fontWeight:700,fontSize:13,color:"#1e3a8a"}}>{pessoa?.nome}</div>
+                          <div style={{fontSize:11,color:"#94a3b8"}}>{email}</div>
+                        </div>
+                        <div style={{display:"flex",gap:8}}>
+                          <button onClick={()=>setImportDecisoes(p=>({...p,[email]:"manter"}))}
+                            style={{padding:"6px 12px",borderRadius:8,border:`2px solid ${importDecisoes[email]==="manter"?"#16a34a":"#e2e8f0"}`,background:importDecisoes[email]==="manter"?"#f0fdf4":"#fff",color:importDecisoes[email]==="manter"?"#16a34a":"#64748b",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                            Manter atual
+                          </button>
+                          <button onClick={()=>setImportDecisoes(p=>({...p,[email]:"substituir"}))}
+                            style={{padding:"6px 12px",borderRadius:8,border:`2px solid ${importDecisoes[email]==="substituir"?"#dc2626":"#e2e8f0"}`,background:importDecisoes[email]==="substituir"?"#fee2e2":"#fff",color:importDecisoes[email]==="substituir"?"#dc2626":"#64748b",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                            Substituir
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Preview da lista */}
+              <div style={{...card,marginBottom:20}}>
+                <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:4}}>👀 Preview — {importPreview.length} pessoa(s) encontrada(s)</h3>
+                <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Verifique os dados antes de confirmar:</p>
+                <div style={{maxHeight:320,overflowY:"auto"}}>
+                  {importPreview.map((p,i)=>{
+                    const isDup=importDuplicatas.includes(p.email);
+                    const decisao=importDecisoes[p.email];
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,marginBottom:4,
+                        background:isDup?(decisao==="manter"?"#f1f5f9":"#fef2f2"):"#f8faff",
+                        border:`1px solid ${isDup?(decisao==="manter"?"#e2e8f0":"#fecaca"):"#dbeafe"}`}}>
+                        <div style={{width:32,height:32,borderRadius:8,background:isDup?"#94a3b8":pc3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>
+                          {p.nome.slice(0,2).toUpperCase()}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:13,color:isDup&&decisao==="manter"?"#94a3b8":"#1e3a8a"}}>{p.nome}</div>
+                          <div style={{fontSize:11,color:"#94a3b8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.email}{p.funcao?` · ${p.funcao}`:""}</div>
+                        </div>
+                        {isDup&&<span style={{fontSize:10,fontWeight:700,color:decisao==="manter"?"#94a3b8":"#dc2626",whiteSpace:"nowrap"}}>{decisao==="manter"?"ignorado":"substituir"}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{display:"flex",gap:12}}>
+                <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});}}
+                  style={{...btnO,flex:1}}>← Cancelar</button>
+                <button onClick={confirmarImportacao} disabled={importando}
+                  style={{...btn("#16a34a"),flex:2,opacity:importando?0.6:1}}>
+                  {importando?"⏳ Importando…":`✅ Confirmar importação (${importPreview.filter(p=>!importDuplicatas.includes(p.email)||(importDecisoes[p.email]==="substituir")).length} usuários)`}
+                </button>
+              </div>
+            </>
+          )}
         </div>
         <PoweredBy/>
       </div>
