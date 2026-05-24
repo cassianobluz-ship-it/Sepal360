@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 
 const SUPER_ADMIN_PASSWORD = "W@Huimai2";
 const STORAGE_ORGS = "cg360_orgs";
@@ -7,13 +7,42 @@ const STORAGE_RESPOSTAS = "cg360_respostas";
 const STORAGE_FORMS = "cg360_forms";
 
 const DEFAULT_SCALE_LABELS = {
-  1:"Nunca", 2:"Raramente", 3:"Às vezes", 4:"Frequente", 5:"Exemplar", 0:"Não sei"
+  1:"Raramente", 2:"Às vezes", 3:"Frequentemente", 4:"Sempre", 0:"Não sei avaliar"
 };
 const SC = {0:"#94a3b8",1:"#ef4444",2:"#f97316",3:"#eab308",4:"#22c55e",5:"#10b981"};
+
+// ─── SCALE MODELS ────────────────────────────────────────────────────
+const SCALE_MODELS = {
+  frequencia: {
+    id: "frequencia",
+    name: "Frequência",
+    icon: "🔁",
+    description: "Com que frequência esse comportamento é observado?",
+    tip: "Recomendado para a maioria das organizações. Universal, humano e fácil de responder.",
+    labels: {1:"Raramente", 2:"Às vezes", 3:"Frequentemente", 4:"Sempre", 0:"Não sei avaliar"},
+  },
+  concordancia: {
+    id: "concordancia",
+    name: "Concordância",
+    icon: "✅",
+    description: "Você concorda com esta afirmação sobre a pessoa?",
+    tip: "Mais corporativo. Funciona bem com perguntas no formato de afirmações.",
+    labels: {1:"Discordo", 2:"Neutro", 3:"Concordo", 4:"Concordo totalmente", 0:"Sem elementos para avaliar"},
+  },
+  maturidade: {
+    id: "maturidade",
+    name: "Maturidade",
+    icon: "📈",
+    description: "Qual o nível de desenvolvimento nessa área?",
+    tip: "Focado em crescimento. Ideal quando o objetivo é criar planos de desenvolvimento.",
+    labels: {1:"Precisa melhorar", 2:"Adequado", 3:"Muito bom", 4:"Excelente", 0:"Não consigo avaliar"},
+  },
+};
+function getScaleLabels(modelId){ return SCALE_MODELS[modelId]?.labels || SCALE_MODELS.frequencia.labels; }
 const DEFAULT_YESNO_LABELS = {1:"Sim", 2:"Atenção", 0:"Não"};
 const YESNO_COLORS = {1:"#ef4444", 2:"#f59e0b", 0:"#10b981"};
 // SCALE is built dynamically from org settings — see getScale() in App
-function gerarCiclos(){const ano=new Date().getFullYear();const r=[];for(let a=ano-2;a<=ano+2;a++){r.push(`${a} - 1º Semestre`);r.push(`${a} - 2º Semestre`);}return r;}
+function gerarCiclos(){const ano=new Date().getFullYear();const inicio=Math.max(ano,2026);const r=[];for(let a=inicio;a<=inicio+3;a++){r.push(`${a} - 1º Semestre`);r.push(`${a} - 2º Semestre`);}return r;}
 const CICLOS=gerarCiclos();
 const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal identificável é coletado. Os administradores do sistema visualizam apenas resultados agregados, sem identificação de quem respondeu. Os dados são utilizados exclusivamente para fins de desenvolvimento organizacional interno, conforme a LGPD (Lei nº 13.709/2018). Você pode interromper o preenchimento a qualquer momento.";
 
@@ -262,6 +291,7 @@ async function loadOrgs() {
         baseUrl: r.base_url,
         activeCiclo: r.active_ciclo,
         scaleLabels: r.scale_labels,
+        scaleModel: r.scale_model || "frequencia",
         createdAt: r.created_at,
       };
     });
@@ -274,40 +304,26 @@ async function saveOrgs(orgs) {
 }
 
 async function upsertOrg(org) {
-  // Build the base payload with columns that always exist
-  const payload = {
-    id: org.id, name: org.name,
-    admin_password: org.adminPassword,
-    primary_color: org.primaryColor || "#2563eb",
-    logo_url: org.logoUrl || "",
-    base_url: org.baseUrl || "",
-    active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
-    scale_labels: org.scaleLabels || {},
-    slug: org.slug || "",
-    created_at: org.createdAt || new Date().toISOString(),
-  };
-  // Try with yesno_labels first; fall back without it if the column doesn't exist yet
   try {
     await sbFetch("organizations", {
       method: "POST",
       prefer: "resolution=merge-duplicates,return=minimal",
-      body: JSON.stringify({ ...payload, yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS }),
+      body: JSON.stringify({
+        id: org.id, name: org.name,
+        admin_password: org.adminPassword,
+        primary_color: org.primaryColor || "#2563eb",
+        logo_url: org.logoUrl || "",
+        base_url: org.baseUrl || "",
+        active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
+        scale_labels: org.scaleLabels || {},
+        scale_model: org.scaleModel || "frequencia",
+        slug: org.slug || "",
+        yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS,
+        created_at: org.createdAt || new Date().toISOString(),
+      }),
     });
     return true;
-  } catch(e) {
-    // If error mentions yesno_labels column, retry without it
-    if (e.message && e.message.includes("yesno_labels")) {
-      try {
-        await sbFetch("organizations", {
-          method: "POST",
-          prefer: "resolution=merge-duplicates,return=minimal",
-          body: JSON.stringify(payload),
-        });
-        return true;
-      } catch(e2) { console.error("upsertOrg fallback:", e2); return false; }
-    }
-    console.error("upsertOrg:", e); return false;
-  }
+  } catch(e) { console.error("upsertOrg:", e); return false; }
 }
 
 async function deleteOrgFromDB(orgId) {
@@ -639,6 +655,7 @@ async function loadOrgBySlug(slug) {
         baseUrl: r.base_url,
         activeCiclo: r.active_ciclo,
         scaleLabels: r.scale_labels,
+        scaleModel: r.scale_model || "frequencia",
         yesnoLabels: r.yesno_labels || DEFAULT_YESNO_LABELS,
         slug: r.slug,
         createdAt: r.created_at,
@@ -677,7 +694,10 @@ async function saveCustomLinks2(orgId, links) {
 
 // ─── UTILS ───────────────────────────────────────────────────────────
 function bAvg(b,r){const v=b.perguntas.map((_,i)=>r[`${b.id}_${i}`]||0).filter(x=>x>0);return v.length?v.reduce((a,x)=>a+x,0)/v.length:0;}
-function sColor(s){return s>=4?"#10b981":s>=3?"#3b82f6":s>=2?"#f59e0b":"#ef4444";}
+function sColor(s){
+  // Max score is 4. Thresholds adjusted for 4-point scale.
+  return s>=3.5?"#10b981":s>=2.5?"#3b82f6":s>=1.5?"#f59e0b":"#ef4444";
+}
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function slugify(s){return s.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");}
 function genId(n=8){return Math.random().toString(36).slice(2,2+n);}
@@ -696,9 +716,9 @@ function PoweredBy(){
 }
 
 function OrgLogo({org,size=72}){
-  if(org?.logoUrl) return <img src={org.logoUrl} alt={org?.name||""} style={{width:size,height:size,objectFit:"contain",borderRadius:8}}/>;
+  if(org?.logoUrl) return <img src={org.logoUrl} alt={org?.name||""} style={{width:size,height:size,objectFit:"contain",borderRadius:8,flexShrink:0}}/>;
   const c=org?.primaryColor||"#2563eb";
-  return <div style={{width:size,height:size,borderRadius:14,background:c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:900,color:"#fff"}}>{(org?.name||"?").slice(0,2).toUpperCase()}</div>;
+  return <div style={{width:size,height:size,borderRadius:Math.round(size*0.22),background:`linear-gradient(135deg,${c},${c}cc)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:900,color:"#fff",boxShadow:`0 2px 8px ${c}40`,flexShrink:0}}>{(org?.name||"?").slice(0,2).toUpperCase()}</div>;
 }
 
 function LogoUploader({value,onChange,color="#2563eb"}){
@@ -776,12 +796,12 @@ function LinkCard({label,link,color="#2563eb"}){
 
 function ScBar({label,score}){
   return(
-    <div style={{marginBottom:10}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-        <span style={{fontSize:13,color:"#475569"}}>{label}</span>
-        <span style={{fontSize:13,fontWeight:700,color:score>0?sColor(score):"#94a3b8"}}>{score>0?score.toFixed(1)+"/5":"—"}</span>
+    <div style={{marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+        <span style={{fontSize:13,color:"#475569",fontWeight:500}}>{label}</span>
+        <span style={{fontSize:13,fontWeight:700,color:score>0?sColor(score):"#94a3b8"}}>{score>0?score.toFixed(1)+"/4":"—"}</span>
       </div>
-      <div style={{background:"#e2e8f0",borderRadius:6,height:8}}><div style={{width:`${(score/5)*100}%`,background:sColor(score),height:8,borderRadius:6,transition:"width 0.6s"}}/></div>
+      <div style={{background:"#e2e8f0",borderRadius:99,height:8}}><div style={{width:`${(score/5)*100}%`,background:sColor(score),height:8,borderRadius:99,transition:"width 0.6s ease"}}/></div>
     </div>
   );
 }
@@ -855,6 +875,50 @@ function AtribuicoesEditor({usuario, org, forms, avaliados, ciclo, inp, btn, pc}
   );
 }
 
+
+// ─── DESIGN TOKENS ───────────────────────────────────────────────────
+const R={sm:8,md:12,lg:16,xl:20,full:9999};
+const SH={sm:"0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04)",md:"0 4px 16px rgba(0,0,0,0.08),0 2px 6px rgba(0,0,0,0.04)",lg:"0 8px 32px rgba(0,0,0,0.10),0 4px 12px rgba(0,0,0,0.05)"};
+
+// StatusBadge component
+function StatusBadge({ok}){
+  return <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:R.full,fontSize:11,fontWeight:700,background:ok?"#dcfce7":"#fef9c3",color:ok?"#15803d":"#92400e",border:`1px solid ${ok?"#86efac":"#fde047"}`}}><span style={{fontSize:8}}>●</span>{ok?"Concluída":"Pendente"}</span>;
+}
+
+// KpiCard component
+function KpiCard({icon,val,label,color}){
+  return(<div style={{background:"#fff",borderRadius:R.lg,padding:"18px 16px",textAlign:"center",boxShadow:SH.sm,border:"1px solid rgba(0,0,0,0.04)"}}>
+    <div style={{fontSize:24,marginBottom:6}}>{icon}</div>
+    <div style={{fontSize:26,fontWeight:800,color:color||"#1e3a8a",letterSpacing:"-0.02em",lineHeight:1}}>{val}</div>
+    <div style={{fontSize:11,color:"#94a3b8",marginTop:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</div>
+  </div>);
+}
+
+// PDF Print function
+function printIndividualPDF({org,avaliado,ciclo,formTitle,bStats,mgeral,abList,respsCount}){
+  function sc(s){return s>=4?"#10b981":s>=3?"#3b82f6":s>=2?"#f59e0b":"#ef4444";}
+  const bars=bStats.map(b=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/4":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`).join("");
+  const comments=abList.length>0?`<p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin:28px 0 12px">Reflexões abertas (${abList.length})</p>${abList.map(t=>`<div style="background:#f8faff;border-left:3px solid #3b82f6;padding:10px 14px;margin-bottom:8px;font-size:12px;color:#334155;line-height:1.7;border-radius:0 8px 8px 0">"${t}"</div>`).join("")}`:"";
+  const logoHtml=org.logoUrl?`<img src="${org.logoUrl}" style="height:44px;object-fit:contain"/>`:`<div style="width:44px;height:44px;border-radius:10px;background:#1e3a8a;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${(org.name||"?").slice(0,2).toUpperCase()}</div>`;
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — ${avaliado}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;color:#1e293b;padding:40px;max-width:800px;margin:0 auto}.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:24px;border-bottom:3px solid #1e3a8a;margin-bottom:28px}.badge{background:#f0fdf4;border:1px solid #86efac;color:#15803d;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 28px}.kpi{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:14px;text-align:center}.kpi-val{font-size:22px;font-weight:800;color:#1e3a8a}.kpi-lbl{font-size:10px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}.footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0}.lgpd{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:11px;color:#15803d;margin-top:32px}@media print{body{padding:20px}}</style></head><body>
+  <div class="hdr"><div>${logoHtml}<div style="margin-top:10px"><strong style="font-size:15px;color:#1e3a8a">${org.name||""}</strong><div style="font-size:11px;color:#64748b;margin-top:2px">Avaliação 360°</div></div></div><div style="text-align:right"><span class="badge">LGPD conforme</span><div style="font-size:11px;color:#94a3b8;margin-top:8px">Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></div></div>
+  <h1 style="font-size:22px;font-weight:800;color:#1e3a8a;margin-bottom:4px">${avaliado}</h1>
+  <div style="font-size:13px;color:#64748b">${formTitle} · ${ciclo}</div>
+  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/4</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${bStats.length}</div><div class="kpi-lbl">Dimensões</div></div></div>
+  <p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px">Pontuação por dimensão</p>${bars}${comments}
+  <div class="lgpd">🔒 Este relatório não contém dados pessoais identificáveis. Respostas exibidas de forma agregada conforme a LGPD (Lei nº 13.709/2018).</div>
+  <div class="footer">Powered by Conectando Gente — Avaliação 360°</div>
+  </body></html>`;
+  const w=window.open("","_blank","width=900,height=700");
+  if(w){w.document.write(html);w.document.close();w.onload=()=>{w.focus();w.print();};}
+}
+
+// loadAtribuicoesOrg - carregar todas atribuições de uma org+ciclo
+async function loadAtribuicoesOrg(orgId,ciclo){
+  try{const rows=await sbFetch(`atribuicoes?org_id=eq.${orgId}&ciclo=eq.${encodeURIComponent(ciclo)}&select=*`);return rows||[];}
+  catch(e){return[];}
+}
+
 export default function App(){
   const [screen,setScreen]=useState("loading");
   const [orgs,setOrgs]=useState({});
@@ -893,11 +957,17 @@ export default function App(){
   const [forgotMode,setForgotMode]=useState(false);
   const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
+  const [scaleModel,setScaleModel]=useState("frequencia");
   const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
   const [importTab,setImportTab]=useState(null);
   const [importResult,setImportResult]=useState(null);
   const [notifSending,setNotifSending]=useState(false);
   const [progressSaving,setProgressSaving]=useState(false);
+  // Dashboard tabs & novas features
+  const [dashTab,setDashTab]=useState("resultados");
+  const [dAvaliado,setDAvaliado]=useState("");
+  const [statusData,setStatusData]=useState(null);
+  const [loadingStatus,setLoadingStatus]=useState(false);
   // Importação Excel
   const [importando,setImportando]=useState(false);
   const [importPreview,setImportPreview]=useState(null);
@@ -909,6 +979,10 @@ export default function App(){
   const [novaSenha,setNovaSenha]=useState("");
   const [confirmaSenha,setConfirmaSenha]=useState("");
   const [trocaSenhaMsg,setTrocaSenhaMsg]=useState("");
+  // New features: tabs, status, comparativo
+  const [dashTab,setDashTab]=useState("resultados");
+  const [statusData,setStatusData]=useState(null);
+  const [loadingStatus,setLoadingStatus]=useState(false);
 
   useEffect(()=>{
     async function init(){
@@ -929,7 +1003,9 @@ export default function App(){
           setOrg(orgData);
           const f = await loadForms(orgData.id);
           setForms(f);
-          setScaleLabels(orgData.scaleLabels || DEFAULT_SCALE_LABELS);
+          const sm1 = orgData.scaleModel||"frequencia";
+          setScaleModel(sm1);
+          setScaleLabels(getScaleLabels(sm1));
           setYesnoLabels((orgData.yesnoLabels)||DEFAULT_YESNO_LABELS);
           const cicloRaw = pathParts[1] || "";
           const shortMatch = cicloRaw.match(/^(\d{4})-s([12])$/);
@@ -953,7 +1029,9 @@ export default function App(){
         const o=ao[pts[1]];
         if(o){
           setOrg(o);const f=await loadForms(pts[1]);setForms(f);
-          setScaleLabels(o.scaleLabels||DEFAULT_SCALE_LABELS);
+          const sm2 = o.scaleModel||"frequencia";
+          setScaleModel(sm2);
+          setScaleLabels(getScaleLabels(sm2));
           // Decode ciclo from URL slug
           // Handles: "2025-s1" -> "2025 - 1º Semestre"
           // Also handles encoded versions like "2025---1%C2%BA-Semestre"
@@ -1005,12 +1083,22 @@ export default function App(){
 
   const fForm=forms[ffi];const fBloc=fForm?.blocos[fbi];const isLast=fForm&&fbi===fForm.blocos.length-1;
   const dForm=forms[dfi];
-  const [dAvaliado,setDAvaliado]=useState(""); // "" = todos
   const dData=resps.filter(r=>r.ciclo===dci&&r.formId===dForm?.id&&(dAvaliado===""||r.avaliadoId===dAvaliado));
   const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0};}):[];
   const mgeral=bStats.length?(bStats.reduce((a,b)=>a+b.media,0)/bStats.length).toFixed(1):"—";
   const abList=[];dData.forEach(r=>Object.values(r.openAns||{}).forEach(v=>{if(v?.trim())abList.push(v.trim());}));
-  const dist=[1,2,3,4,5].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,11),count:c};});
+  const dist=[1,2,3,4].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,14),count:c};});
+  // Comparativo entre ciclos
+  const COMP_COLORS=["#2563eb","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4"];
+  const ciclosComDados=dForm&&dAvaliado?CICLOS.filter(c=>resps.some(r=>r.ciclo===c&&r.formId===dForm.id&&r.avaliadoId===dAvaliado)):[];
+  const comparativoData=dForm&&dAvaliado&&ciclosComDados.length>=2?dForm.blocos.map(b=>({
+    name:b.title.slice(0,14),fullName:b.title,
+    ...Object.fromEntries(ciclosComDados.map(c=>{
+      const cData=resps.filter(r=>r.ciclo===c&&r.formId===dForm.id&&r.avaliadoId===dAvaliado);
+      const sc=cData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);
+      return[c.replace(" - ","·").replace(" Semestre",""),sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0];
+    }))
+  })):null;
   const pc=org?.primaryColor||"#2563eb";
 
   function getBaseUrl(){
@@ -1072,7 +1160,7 @@ export default function App(){
     if(!dData.length)return;
     const rowsH=bStats.map(b=>`<tr><td style="padding:10px;border-bottom:1px solid #e2e8f0">${b.fullName}</td><td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:${sColor(b.media)}">${b.media.toFixed(1)}/5</td><td style="padding:10px;border-bottom:1px solid #e2e8f0"><div style="background:#e2e8f0;border-radius:4px;height:10px;width:180px"><div style="width:${(b.media/5)*100}%;background:${sColor(b.media)};height:10px;border-radius:4px"></div></div></td></tr>`).join("");
     const absH=abList.map(t=>`<li style="margin-bottom:8px;color:#334155;line-height:1.6">${t}</li>`).join("");
-    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/5</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
+    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/4</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html;charset=utf-8;"}));
     a.download=`relatorio-${org?.name||"org"}-${dci.replace(/ /g,"-")}.html`;a.click();
   }
@@ -1087,7 +1175,25 @@ export default function App(){
     copyText(link);
     setRepCopied(true);setTimeout(()=>setRepCopied(false),3000);
   }
+  async function loadStatusData(){
+    if(!org||!dForm)return;
+    setLoadingStatus(true);
+    const[allAtribs,allUsrs]=await Promise.all([loadAtribuicoesOrg(org.id,dci),loadUsuarios(org.id)]);
+    const filtered=allAtribs.filter(a=>a.form_id===dForm.id&&(dAvaliado===""||a.avaliado_id===dAvaliado));
+    const userMap={};allUsrs.forEach(u=>{userMap[u.id]=u;});
+    setStatusData({atribs:filtered,userMap});
+    setLoadingStatus(false);
+  }
 
+  async function loadStatusData(){
+    if(!org||!dForm)return;
+    setLoadingStatus(true);
+    const[allAtribs,allUsrs]=await Promise.all([loadAtribuicoesOrg(org.id,dci),loadUsuarios(org.id)]);
+    const filtered=allAtribs.filter(a=>a.form_id===dForm.id&&(dAvaliado===""||a.avaliado_id===dAvaliado));
+    const userMap={};allUsrs.forEach(u=>{userMap[u.id]=u;});
+    setStatusData({atribs:filtered,userMap});
+    setLoadingStatus(false);
+  }
   async function loginSuper(){if(superP===SUPER_ADMIN_PASSWORD){setSuperE(false);setScreen("super");}else setSuperE(true);}
   async function loginOrg(o){
     if(orgP===o.adminPassword){
@@ -1095,10 +1201,13 @@ export default function App(){
       const f=await loadForms(o.id);const r=await loadResps(o.id);
       const cl=await loadCustomLinks2(o.id);
       const sl=o.scaleLabels||DEFAULT_SCALE_LABELS;
+      const sm=o.scaleModel||"frequencia";
       const yl=o.yesnoLabels||DEFAULT_YESNO_LABELS;
       setYesnoLabels(yl);
       const av=await loadAvaliados(o.id);
-      setForms(f);setResps(r);setCfg(clone(o));setCustomLinks(cl);setScaleLabels(sl);setAvaliados(av);setScreen("dash");
+      setForms(f);setResps(r);setCfg(clone(o));setCustomLinks(cl);
+      setScaleModel(sm);setScaleLabels(getScaleLabels(sm));
+      setAvaliados(av);setDci(o.activeCiclo||CICLOS[0]);setScreen("dash");
     }else setOrgE(true);
   }
   async function createOrg(){
@@ -1119,7 +1228,7 @@ export default function App(){
     const u={...orgs};delete u[id];setOrgs(u);
   }
   async function saveCfg(){
-    const updated={...cfg,scaleLabels:scaleLabels,yesnoLabels:yesnoLabels,slug:cfg.slug||""};
+    const updated={...cfg,scaleLabels:getScaleLabels(scaleModel),scaleModel:scaleModel,yesnoLabels:yesnoLabels,slug:cfg.slug||""};
     const ok = await upsertOrg(updated);
     if(!ok){alert("Erro ao salvar configurações.");return;}
     const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);setCfg(updated);
@@ -1134,7 +1243,9 @@ export default function App(){
     setUsuarioLogado(u);
     const f = await loadForms(org.id);
     setForms(f);
-    setScaleLabels(org.scaleLabels||DEFAULT_SCALE_LABELS);
+    const smU = org.scaleModel||"frequencia";
+    setScaleModel(smU);
+    setScaleLabels(getScaleLabels(smU));
     const ats = await loadAtribuicoes(u.id, org.activeCiclo||CICLOS[0]);
     setAtribuicoes(ats);
     setScreen("user_dash");
@@ -1168,15 +1279,23 @@ export default function App(){
   function addAb(fi,bi){const f=clone(forms);f[fi].blocos[bi].abertas.push("Nova pergunta aberta…");setForms(f);}
   function updBT(fi,bi,v){const f=clone(forms);f[fi].blocos[bi].title=san(v);setForms(f);}
 
-  const pg={minHeight:"100vh",background:"linear-gradient(135deg,#f0f4ff,#e8f0fe)",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"};
-  const card={background:"#fff",borderRadius:20,padding:24,boxShadow:"0 4px 24px #2563eb12",border:"1px solid #dbeafe"};
-  const btn=(c=pc)=>({padding:"11px 22px",borderRadius:11,border:"none",background:c,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13});
-  const btnO={padding:"11px 22px",borderRadius:11,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:600,fontSize:13};
-  const inp={width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
-  const hdr=(c=pc)=>({background:c,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8});
-  const hBtn={border:"none",color:"#fff",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12};
+  const pg={minHeight:"100vh",background:"#f0f4ff",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"};
+  const card={background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"};
+  const btn=(c=pc)=>({padding:"10px 20px",borderRadius:R.md,border:"none",background:c,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13,letterSpacing:"0.01em",transition:"opacity 0.15s"});
+  const btnO={padding:"10px 20px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:13};
+  const inp={width:"100%",padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",background:"#fff"};
+  const hdr=(c=pc)=>({background:c,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 10px rgba(0,0,0,0.12)"});
+  const hBtn={border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"};
+  const tabBtn=(active)=>({padding:"8px 18px",borderRadius:R.sm,border:"none",background:active?pc:"transparent",color:active?"#fff":"#64748b",cursor:"pointer",fontWeight:active?700:500,fontSize:13,transition:"all 0.15s"});
 
-  if(screen==="loading") return <div style={{...pg,alignItems:"center",justifyContent:"center"}}><div style={{fontSize:32}}>⏳</div></div>;
+  if(screen==="loading") return(
+    <div style={{...pg,alignItems:"center",justifyContent:"center",background:"linear-gradient(155deg,#eef2ff,#e0e7ff,#eff6ff)"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
+        <div style={{width:52,height:52,borderRadius:14,background:"linear-gradient(135deg,#2563eb,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:"0 4px 20px #2563eb44"}}>🔗</div>
+        <div style={{fontSize:13,color:"#94a3b8",letterSpacing:"0.04em"}}>Carregando…</div>
+      </div>
+    </div>
+  );
 
   if(screen==="404") return(
     <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
@@ -1195,7 +1314,7 @@ export default function App(){
           <div style={{...card,marginBottom:16}}>
             <h3 style={{color:"#1e3a8a",marginBottom:16,fontSize:15}}>Pontuação por área</h3>
             {(d.bStats||[]).map((b,i)=><ScBar key={i} label={b.fullName||b.name} score={b.media}/>)}
-            <p style={{fontSize:14,color:"#64748b",marginTop:16}}>Média geral: <strong style={{fontSize:22,color:"#1e3a8a"}}>{d.mgeral}/5</strong></p>
+            <p style={{fontSize:14,color:"#64748b",marginTop:16}}>Média geral: <strong style={{fontSize:22,color:"#1e3a8a"}}>{d.mgeral}/4</strong></p>
           </div>
           {d.abList?.length>0&&<div style={{...card}}><h3 style={{color:"#1e3a8a",marginBottom:12,fontSize:15}}>💬 Reflexões ({d.abList.length})</h3>{d.abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:10,padding:"10px 14px",borderLeft:"3px solid #3b82f6",fontSize:13,color:"#334155",marginBottom:8,lineHeight:1.6}}>"{t}"</div>)}</div>}
         </div>
@@ -1205,14 +1324,18 @@ export default function App(){
   }
 
   if(screen==="home") return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#eef2ff 0%,#e0e7ff 55%,#eff6ff 100%)"}}>
       <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
-        <div style={{marginBottom:28}}><div style={{fontSize:52,marginBottom:6}}>🔗</div><h1 style={{fontSize:26,fontWeight:900,color:"#1e3a8a",margin:"0 0 8px"}}>Avaliação 360°</h1><p style={{color:"#64748b",fontSize:14,lineHeight:1.7}}>Para responder, use o link específico que sua organização compartilhou com você.</p></div>
-        <div style={{...card,marginBottom:16}}>
-          <p style={{color:"#64748b",fontSize:13,marginBottom:20}}>Administradores acessem abaixo:</p>
+        <div style={{marginBottom:32}}>
+          <div style={{width:76,height:76,borderRadius:22,background:"linear-gradient(135deg,#2563eb,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,margin:"0 auto 20px",boxShadow:"0 8px 32px #2563eb2e"}}>🔗</div>
+          <h1 style={{fontSize:30,fontWeight:900,color:"#1e3a8a",margin:"0 0 10px",letterSpacing:"-0.025em"}}>Avaliação 360°</h1>
+          <p style={{color:"#64748b",fontSize:14,lineHeight:1.7}}>Para responder, use o link específico que sua organização compartilhou com você.</p>
+        </div>
+        <div style={{...card,marginBottom:12,padding:30}}>
+          <p style={{color:"#94a3b8",fontSize:11,marginBottom:20,textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700}}>Área administrativa</p>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <button onClick={()=>setScreen("org_list")} style={{...btn("#2563eb"),width:"100%"}}>🏢 Acesso Organizacional</button>
-            <button onClick={()=>setScreen("super_login")} style={{...btnO,width:"100%",fontSize:12}}>🔒 Super Admin — Conectando Gente</button>
+            <button onClick={()=>setScreen("org_list")} style={{...btn("#2563eb"),width:"100%",padding:"14px 20px",fontSize:14,borderRadius:R.lg,boxShadow:"0 4px 16px #2563eb22"}}>🏢 Acesso Organizacional</button>
+            <button onClick={()=>setScreen("super_login")} style={{...btnO,width:"100%",fontSize:12,color:"#94a3b8",border:"1.5px solid #e2e8f0"}}>🔒 Super Admin · Conectando Gente</button>
           </div>
         </div>
         <PoweredBy/>
@@ -1221,7 +1344,7 @@ export default function App(){
   );
 
   if(screen==="super_login") return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#0f172a,#1e3a8a)"}}>
       <div style={{...card,maxWidth:360,width:"100%",textAlign:"center"}}>
         <div style={{fontSize:40,marginBottom:12}}>🔒</div><h2 style={{color:"#1e3a8a",marginBottom:4}}>Super Admin</h2><p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Conectando Gente</p>
         <input type="password" placeholder="Senha master" value={superP} onChange={e=>setSuperP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&loginSuper()} style={{...inp,border:`2px solid ${superE?"#ef4444":"#dbeafe"}`,marginBottom:6}}/>
@@ -1234,14 +1357,14 @@ export default function App(){
 
   if(screen==="super") return(
     <div style={{...pg,padding:0}}>
-      <div style={hdr("#1e3a8a")}><div><div style={{fontWeight:800,fontSize:16}}>🔒 Super Admin — Conectando Gente</div><div style={{fontSize:11,color:"#93c5fd"}}>{Object.keys(orgs).length} organização(ões)</div></div><button onClick={()=>setScreen("home")} style={{...hBtn,background:"#3b82f6"}}>Sair</button></div>
+      <div style={hdr("#1e3a8a")}><div><div style={{fontWeight:800,fontSize:16}}>🔒 Super Admin — Conectando Gente</div><div style={{fontSize:11,color:"#93c5fd"}}>{Object.keys(orgs).length} organização(ões)</div></div><button onClick={()=>setScreen("home")} style={hBtn}>Sair</button></div>
       <div style={{maxWidth:860,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
         <div style={{...card,marginBottom:24}}>
           <h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>➕ Nova Organização</h3>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label><input value={nOrg.name} onChange={e=>setNOrg(p=>({...p,name:e.target.value}))} style={inp} placeholder="Ex: Sepal — Servindo aos que Servem"/></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA DO ADMIN *</label><input type="password" value={nOrg.adminPassword} onChange={e=>setNOrg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Senha"/></div>
-            <div style={{gridColumn:"1 / -1"}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>IDENTIFICADOR DA URL <span style={{fontWeight:400,color:"#94a3b8"}}>(opcional — nome curto que aparece no link, ex: "sepal")</span></label><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>sepal360.vercel.app/#/fill/</span><input value={nOrg.slug||""} onChange={e=>setNOrg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/></div></div>
+            <div style={{gridColumn:"1 / -1"}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Identificador da URL <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(ex: "sepal" → avalie360.vercel.app/sepal/login)</span></label><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>sepal360.vercel.app/#/fill/</span><input value={nOrg.slug||""} onChange={e=>setNOrg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>COR PRINCIPAL</label><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{width:44,height:38,borderRadius:8,border:"2px solid #dbeafe",cursor:"pointer",padding:2}}/><input value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{...inp,flex:1}}/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label><LogoUploader value={nOrg.logoUrl} onChange={url=>setNOrg(p=>({...p,logoUrl:url}))} color={nOrg.primaryColor}/></div>
           </div>
@@ -1313,7 +1436,7 @@ export default function App(){
   );
 
   if(screen==="org_list") return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#eef2ff,#eff6ff)"}}>
       <div style={{maxWidth:440,width:"100%"}}>
         <div style={{...card,marginBottom:16}}>
           <h2 style={{color:"#1e3a8a",marginBottom:4,fontSize:18}}>🏢 Acesso Organizacional</h2>
@@ -1334,7 +1457,7 @@ export default function App(){
   );
 
   if(screen==="org_login"&&org) return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#eef2ff,#eff6ff)"}}>
       <div style={{...card,maxWidth:360,width:"100%",textAlign:"center"}}>
         <OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{org.name}</h2><p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Painel administrativo</p>
         <div style={{position:"relative",marginBottom:6}}>
@@ -1355,94 +1478,136 @@ export default function App(){
 
   if(screen==="dash"&&org){
     const links=getLinks();
-    return(
-      <div style={{...pg,padding:0}}>
-        <div style={hdr(pc)}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={34}/><div><div style={{fontWeight:800,fontSize:15}}>{org.name} · Avaliação 360°</div><div style={{fontSize:11,opacity:0.75}}>Painel administrativo</div></div></div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button onClick={()=>setScreen("editor")} style={{...hBtn,background:"#f59e0b",fontWeight:700}}>✏️ Formulários</button>
-            <button onClick={()=>setScreen("avaliados")} style={{...hBtn,background:"#8b5cf6",fontWeight:700}}>👥 Avaliados</button>
-            <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{...hBtn,background:"#0891b2",fontWeight:700}}>🔑 Usuários</button>
-            <button onClick={()=>setScreen("settings")} style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>⚙️ Config</button>
-            <button onClick={()=>{setScreen("home");setOrg(null);}} style={{...hBtn,background:"rgba(255,255,255,0.15)"}}>Sair</button>
-          </div>
+    return(<div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",padding:0}}>
+      {/* Header */}
+      <div style={{background:pc,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 10px rgba(0,0,0,0.14)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={36}/><div><div style={{fontWeight:800,fontSize:15,letterSpacing:"-0.01em"}}>{org.name}</div><div style={{fontSize:11,opacity:0.8,marginTop:1}}>Painel administrativo · Avaliação 360°</div></div></div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
+          <button onClick={()=>setScreen("avaliados")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Avaliados</button>
+          <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🔑 Usuários</button>
+          <button onClick={()=>setScreen("settings")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>⚙️ Config</button>
+          <button onClick={()=>{setScreen("home");setOrg(null);}} style={{border:"1.5px solid rgba(255,255,255,0.18)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(0,0,0,0.18)"}}>Sair</button>
         </div>
-        <div style={{maxWidth:900,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
-          {/* Links diretos - colapsável */}
-          <div style={{...card,marginBottom:24}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <h3 style={{color:"#1e3a8a",fontSize:15,margin:0}}>🔗 Links diretos</h3>
-                <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Acesso sem login — opcional</p>
-              </div>
-              <button onClick={()=>setShowLinks(p=>!p)}
-                style={{padding:"7px 14px",borderRadius:8,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12,fontWeight:600}}>
-                {showLinks?"▲ Ocultar":"▼ Mostrar"}
-              </button>
-            </div>
-            {showLinks&&<>
+      </div>
+      <div style={{maxWidth:960,margin:"0 auto",padding:"24px 16px 48px",width:"100%"}}>
+        {/* Links colapsável */}
+        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><h3 style={{color:"#1e3a8a",fontSize:15,margin:0,fontWeight:700}}>🔗 Links de acesso</h3><p style={{fontSize:11,color:"#94a3b8",marginTop:3}}>Compartilhe com os avaliadores</p></div>
+            <button onClick={()=>setShowLinks(p=>!p)} style={{padding:"7px 16px",borderRadius:R.sm,border:"1.5px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12,fontWeight:600}}>{showLinks?"▲ Ocultar":"▼ Mostrar"}</button>
+          </div>
+          {showLinks&&(<>
             <div style={{marginTop:16,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"6px 10px",borderRadius:8,border:"2px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>
-                {CICLOS.map(c=><option key={c}>{c}</option>)}
-              </select>
-              <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:8,border:"2px solid "+pc,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Editar</button>
+              <select value={org.activeCiclo||CICLOS[0]} onChange={async e=>{const updated={...org,activeCiclo:e.target.value};await upsertOrg(updated);const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);}} style={{padding:"7px 12px",borderRadius:R.sm,border:"1.5px solid #dbeafe",fontSize:12,outline:"none",fontWeight:600,color:"#334155"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select>
+              <button onClick={()=>setScreen("links_editor")} style={{padding:"7px 14px",borderRadius:R.sm,border:`1.5px solid ${pc}`,background:"#fff",color:pc,cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Personalizar</button>
             </div>
-                    {/* Warning about URL base */}
-            {/* URL base notice */}
-            {!org.baseUrl&&(
-              <div style={{background:"#fefce8",borderRadius:10,padding:"10px 14px",border:"1px solid #fde68a",marginBottom:14,fontSize:12,color:"#92400e",display:"flex",alignItems:"center",gap:8}}>
-                ⚠️ <span>Configure a <strong>URL do app</strong> nas configurações para gerar links corretos. Atualmente os links podem apontar para o Claude.</span>
-                <button onClick={()=>setScreen("settings")} style={{marginLeft:"auto",padding:"4px 10px",borderRadius:6,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>Configurar</button>
-              </div>
-            )}
+            {!org.baseUrl&&<div style={{background:"#fefce8",borderRadius:R.sm,padding:"10px 14px",border:"1px solid #fde68a",margin:"12px 0",fontSize:12,color:"#92400e",display:"flex",alignItems:"center",gap:8}}>⚠️ Configure a <strong>URL do app</strong> nas configurações para gerar links corretos.<button onClick={()=>setScreen("settings")} style={{marginLeft:"auto",padding:"4px 10px",borderRadius:6,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>Configurar</button></div>}
             {links.map(l=><LinkCard key={l.id} label={`${l.icon} ${l.title}`} link={l.link} color={pc}/>)}
-            </>
-            }
-          </div>
-
-          <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap",alignItems:"flex-end"}}>
-            <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>CICLO</label><select value={dci} onChange={e=>setDci(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
-            <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>FORMULÁRIO</label><select value={dfi} onChange={e=>setDfi(Number(e.target.value))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
-            <div style={{flex:1,minWidth:150}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>AVALIADO</label><select value={dAvaliado} onChange={e=>setDAvaliado(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <button onClick={exportCSV} style={{...btn("#475569"),padding:"10px 14px",fontSize:12}} title="Baixar dados CSV">⬇️ CSV</button>
-              <button onClick={exportHTML} style={{...btn("#7c3aed"),padding:"10px 14px",fontSize:12}} title="Baixar relatório HTML">📄 Relatório</button>
-              <button onClick={shareReport} style={{...btn(repCopied?"#16a34a":"#0891b2"),padding:"10px 14px",fontSize:12}} title="Copiar link público do relatório">{repCopied==="saving"?"⏳ Gerando...":repCopied?"✓ Link copiado!":"🔗 Compartilhar"}</button>
-            </div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:24}}>
-            {[{icon:"📋",val:dData.length,label:"Respostas"},{icon:"⭐",val:mgeral,label:"Média Geral"},{icon:"✍️",val:abList.length,label:"Reflexões"}].map((k,i)=>(
-              <div key={i} style={{...card,textAlign:"center",padding:16}}><div style={{fontSize:28}}>{k.icon}</div><div style={{fontSize:26,fontWeight:800,color:pc}}>{k.val}</div><div style={{fontSize:11,color:"#94a3b8"}}>{k.label}</div></div>
-            ))}
-          </div>
-          {dData.length===0?(
-            <div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>📭</div><p style={{color:"#64748b"}}>Nenhuma resposta para este ciclo e formulário.</p><p style={{color:"#94a3b8",fontSize:12,marginTop:8}}>Compartilhe os links acima para coletar respostas.</p></div>
-          ):(<>
-            <div style={{...card,marginBottom:24}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
-            <div style={{...card,marginBottom:24}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-            <div style={{...card,marginBottom:24}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
-            {abList.length>0&&<div style={{...card}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:10,padding:"10px 14px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.6}}>"{t}"</div>)}</div></div>}
           </>)}
         </div>
-        <PoweredBy/>
+        {/* Filtros */}
+        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo</label><select value={dci} onChange={e=>{setDci(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Formulário</label><select value={dfi} onChange={e=>{setDfi(Number(e.target.value));setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
+            <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avaliado</label><select value={dAvaliado} onChange={e=>{setDAvaliado(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}><option value="">Todos</option>{avaliados.map(a=><option key={a.id} value={a.id}>{a.nome}{a.funcao?` — ${a.funcao}`:""}</option>)}</select></div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button onClick={exportCSV} style={{padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:12}}>⬇️ CSV</button>
+              <button onClick={exportHTML} style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:"#7c3aed",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>📄 HTML</button>
+              <button onClick={shareReport} style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:repCopied?"#16a34a":"#0891b2",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,transition:"background 0.2s"}}>{repCopied==="saving"?"⏳":repCopied?"✓ Link!":"🔗 Compartilhar"}</button>
+              {dAvaliado&&dData.length>0&&(
+                <button onClick={()=>printIndividualPDF({org,avaliado:avaliados.find(a=>a.id===dAvaliado)?.nome||dAvaliado,ciclo:dci,formTitle:dForm?.title||"",bStats,mgeral,abList,respsCount:dData.length})}
+                  style={{padding:"10px 14px",borderRadius:R.md,border:"none",background:"#dc2626",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>🖨️ PDF</button>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* KPIs */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
+          <KpiCard icon="📋" val={dData.length} label="Respostas" color={pc}/>
+          <KpiCard icon="⭐" val={mgeral} label="Média Geral" color={mgeral==="—"?"#94a3b8":sColor(Number(mgeral))}/>
+          <KpiCard icon="💬" val={abList.length} label="Reflexões" color="#8b5cf6"/>
+        </div>
+        {/* Abas */}
+        <div style={{background:"#fff",borderRadius:R.xl,padding:8,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}>
+          <div style={{display:"flex",gap:4}}>
+            {[{id:"resultados",label:"📊 Resultados"},{id:"status",label:"👁 Status"},{id:"comparativo",label:"📈 Evolução"}].map(t=>(
+              <button key={t.id} onClick={()=>{setDashTab(t.id);if(t.id==="status")loadStatusData();}}
+                style={{padding:"8px 18px",borderRadius:R.sm,border:"none",background:dashTab===t.id?pc:"transparent",color:dashTab===t.id?"#fff":"#64748b",cursor:"pointer",fontWeight:dashTab===t.id?700:500,fontSize:13,transition:"all 0.15s"}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Resultados */}
+        {dashTab==="resultados"&&(dData.length===0?(
+          <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
+        ):(<>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,4]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/4`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
+          {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
+        </>))}
+        {/* Status */}
+        {dashTab==="status"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+            <div><h3 style={{color:"#1e3a8a",fontSize:15,margin:0,fontWeight:700}}>👁 Status em Tempo Real</h3><p style={{fontSize:12,color:"#94a3b8",marginTop:4}}>Ciclo {dci} · {dForm?.title}</p></div>
+            <button onClick={loadStatusData} style={{padding:"8px 18px",borderRadius:R.md,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>{loadingStatus?"⏳ Carregando…":"↻ Atualizar"}</button>
+          </div>
+          {!statusData?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>👁</div><p style={{fontSize:13}}>Clique em "Atualizar" para carregar o status em tempo real.</p></div>):(()=>{
+            const {atribs,userMap}=statusData;const concluidas=atribs.filter(a=>a.concluida).length;const pct=atribs.length>0?Math.round((concluidas/atribs.length)*100):0;
+            return(<><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
+              {[{l:"Total",v:atribs.length,c:"#2563eb",bg:"#eff6ff"},{l:"Concluídas",v:concluidas,c:"#16a34a",bg:"#f0fdf4"},{l:"Pendentes",v:atribs.length-concluidas,c:"#d97706",bg:"#fefce8"}].map(k=>(
+                <div key={k.l} style={{background:k.bg,borderRadius:R.md,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:24,fontWeight:800,color:k.c,letterSpacing:"-0.02em"}}>{k.v}</div><div style={{fontSize:11,color:"#64748b",marginTop:2,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>{k.l}</div></div>
+              ))}
+            </div>
+            <div style={{background:"#e2e8f0",borderRadius:R.full,height:8,marginBottom:8}}><div style={{width:`${pct}%`,height:8,borderRadius:R.full,background:`linear-gradient(90deg,${pc},#10b981)`,transition:"width 0.6s"}}/></div>
+            <p style={{fontSize:12,color:"#64748b",marginBottom:16,textAlign:"center"}}>{pct}% concluído</p>
+            {atribs.length===0?<p style={{textAlign:"center",color:"#94a3b8",fontSize:13,padding:"20px 0"}}>Nenhuma atribuição para este ciclo/formulário.</p>:(
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {atribs.map(a=>{const u=userMap[a.usuario_id];return(<div key={a.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:a.concluida?"#f0fdf4":"#fff",borderRadius:R.md,border:`1px solid ${a.concluida?"#86efac":"#e2e8f0"}`,flexWrap:"wrap"}}>
+                  <div style={{width:32,height:32,borderRadius:8,background:a.concluida?"#22c55e":pc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>{(u?.nome||"?").slice(0,2).toUpperCase()}</div>
+                  <div style={{flex:1,minWidth:100}}><div style={{fontWeight:600,color:"#1e3a8a",fontSize:13}}>{u?.nome||a.usuario_id}</div>{a.avaliado_nome&&<div style={{fontSize:11,color:"#94a3b8",marginTop:1}}>→ {a.avaliado_nome}</div>}</div>
+                  <StatusBadge ok={a.concluida}/>
+                </div>);})}
+              </div>
+            )}</>);
+          })()}
+        </div>)}
+        {/* Comparativo */}
+        {dashTab==="comparativo"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}>
+          <h3 style={{color:"#1e3a8a",fontSize:15,margin:"0 0 6px",fontWeight:700}}>📈 Evolução entre Ciclos</h3>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>Selecione um avaliado no filtro acima para ver a evolução semestral.</p>
+          {!dAvaliado?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>👤</div><p style={{fontSize:13}}>Selecione um avaliado para ver a evolução.</p></div>):
+          ciclosComDados.length<2?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>📊</div><p style={{fontSize:13}}>São necessários dados de pelo menos 2 ciclos.</p><p style={{fontSize:12,marginTop:6}}>Ciclos com dados: {ciclosComDados.length>0?ciclosComDados.join(", "):"nenhum"}</p></div>):
+          comparativoData&&(<>
+            <div style={{marginBottom:14,display:"flex",gap:8,flexWrap:"wrap"}}>
+              {ciclosComDados.map((c,i)=><span key={c} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:R.full,background:`${COMP_COLORS[i%COMP_COLORS.length]}15`,border:`1px solid ${COMP_COLORS[i%COMP_COLORS.length]}40`,fontSize:12,color:COMP_COLORS[i%COMP_COLORS.length],fontWeight:700}}><span style={{width:8,height:8,borderRadius:"50%",background:COMP_COLORS[i%COMP_COLORS.length],display:"inline-block"}}/>{c}</span>)}
+            </div>
+            <ResponsiveContainer width="100%" height={280}><LineChart data={comparativoData} margin={{top:5,right:20,left:-20,bottom:60}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,4]} tick={{fontSize:11}}/><Tooltip formatter={(v,n)=>[`${v}/4`,n]}/><Legend wrapperStyle={{fontSize:11,paddingTop:8}}/>{ciclosComDados.map((c,i)=><Line key={c} type="monotone" dataKey={c.replace(" - ","·").replace(" Semestre","")} stroke={COMP_COLORS[i%COMP_COLORS.length]} strokeWidth={2.5} dot={{r:4}} activeDot={{r:6}}/>)}</LineChart></ResponsiveContainer>
+            <div style={{marginTop:20}}><p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10}}>Tabela comparativa</p><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{background:"#f8faff"}}><th style={{padding:"8px 12px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"2px solid #dbeafe"}}>Dimensão</th>{ciclosComDados.map((c,i)=><th key={c} style={{padding:"8px 12px",textAlign:"center",color:COMP_COLORS[i%COMP_COLORS.length],fontWeight:700,borderBottom:"2px solid #dbeafe",whiteSpace:"nowrap"}}>{c.replace(" - ","·").replace(" Semestre","")}</th>)}</tr></thead><tbody>{comparativoData.map((row,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8faff"}}><td style={{padding:"8px 12px",color:"#334155",fontWeight:500}}>{row.fullName}</td>{ciclosComDados.map((c,j)=>{const k=c.replace(" - ","·").replace(" Semestre","");const val=row[k];return<td key={c} style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:val>0?sColor(val):"#94a3b8"}}>{val>0?val.toFixed(1):"—"}</td>;})}</tr>)}</tbody></table></div></div>
+          </>)}
+        </div>)}
       </div>
-    );
+      <PoweredBy/>
+    </div>);
   }
 
-  if(screen==="settings"&&org&&cfg) return(
-    <div style={{...pg,padding:0}}>
-      <div style={hdr(pc)}><div style={{fontWeight:800,fontSize:15}}>⚙️ Configurações — {org.name}</div><button onClick={()=>setScreen("dash")} style={{...hBtn,background:"rgba(255,255,255,0.2)"}}>← Voltar</button></div>
-      <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
+    if(screen==="settings"&&org&&cfg) return(
+    <div style={{...pg,padding:0,background:"#f5f7ff"}}>
+      <div style={hdr(pc)}><div style={{fontWeight:800,fontSize:15}}>⚙️ Configurações — {org.name}</div><button onClick={()=>setScreen("dash")} style={hBtn}>← Voltar</button></div>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px 40px",width:"100%",flex:1}}>
         <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>Identidade da organização</h3>
           <div style={{marginBottom:14}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME</label><input value={cfg.name} onChange={e=>setCfg(p=>({...p,name:e.target.value}))} style={inp}/></div>
           <div style={{marginBottom:14}}>
-            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>IDENTIFICADOR DA URL <span style={{fontWeight:400,color:"#94a3b8"}}>(nome curto que aparece no link, ex: "sepal")</span></label>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>IDENTIFICADOR DA URL <span style={{fontWeight:400,color:"#94a3b8"}}>(parte amigável da URL, ex: "sepal")</span></label>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>avalie360.vercel.app/</span>
               <input value={cfg.slug||""} onChange={e=>setCfg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/>
             </div>
-            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login: <strong>{cfg.baseUrl||"avalie360.vercel.app"}/{cfg.slug||"(identificador)"}/login</strong></p>
+            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login: <strong>{cfg.baseUrl||"avalie360.vercel.app"}/{cfg.slug||"slug"}/login</strong></p>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label>
@@ -1456,25 +1621,50 @@ export default function App(){
             <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Cole aqui o endereço onde o app está publicado. Isso corrige os links de compartilhamento.</p>
           </div>
           <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOVA SENHA DO ADMINISTRADOR</label><input type="password" value={cfg.adminPassword||""} onChange={e=>setCfg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Deixe em branco para não alterar"/></div>
-          <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb")}}>💾 Salvar configurações</button>
+          <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo ativo</label><select value={cfg.activeCiclo||CICLOS[0]} onChange={e=>setCfg(p=>({...p,activeCiclo:e.target.value}))} style={{...inp}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
+          <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"12px 20px",fontSize:14}}>💾 Salvar configurações</button>
         </div>
         <div style={{...card,marginBottom:16}}>
-          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15}}>🔢 Escala de avaliação</h3>
-          <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Personalize os rótulos dos botões de resposta (1 a 5 e "não sei").</p>
-          <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"10px 12px",alignItems:"center"}}>
-            {[1,2,3,4,5,0].map(v=>(
-              <>
-                <div key={"n"+v} style={{width:32,height:32,borderRadius:8,background:SC[v],display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:"#fff",flexShrink:0}}>
-                  {v===0?"?":v}
+          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🔢 Estilo de avaliação</h3>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:20,lineHeight:1.6}}>Escolha como os colaboradores vão responder as perguntas. Em todos os modelos existe a opção <strong>"Não sei avaliar"</strong> — que nunca entra no cálculo.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {Object.values(SCALE_MODELS).map(model=>{
+              const active = (cfg.scaleModel||"frequencia") === model.id;
+              return(
+                <div key={model.id}
+                  onClick={()=>{setCfg(p=>({...p,scaleModel:model.id}));setScaleModel(model.id);setScaleLabels(model.labels);}}
+                  style={{borderRadius:R.lg,border:`2px solid ${active?pc:"#e2e8f0"}`,background:active?"#eff6ff":"#fff",padding:"16px 20px",cursor:"pointer",transition:"all 0.18s",boxShadow:active?`0 0 0 3px ${pc}18`:"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:active?pc:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,transition:"background 0.18s",flexShrink:0}}>
+                      {model.icon}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:14,color:active?"#1e3a8a":"#334155"}}>{model.name}</div>
+                      <div style={{fontSize:12,color:"#64748b",marginTop:1}}>{model.description}</div>
+                    </div>
+                    <div style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${active?pc:"#dbeafe"}`,background:active?pc:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+                      {active&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff"}}/>}
+                    </div>
+                  </div>
+                  {/* Preview das respostas */}
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                    {[1,2,3,4].map(v=>(
+                      <span key={v} style={{padding:"3px 10px",borderRadius:R.full,fontSize:11,fontWeight:600,background:active?`${SC[v]}18`:"#f8faff",color:active?SC[v]:"#94a3b8",border:`1px solid ${active?SC[v]+"30":"#e2e8f0"}`}}>
+                        {model.labels[v]}
+                      </span>
+                    ))}
+                    <span style={{padding:"3px 10px",borderRadius:R.full,fontSize:11,fontWeight:600,background:"#f8faff",color:"#94a3b8",border:"1px solid #e2e8f0"}}>
+                      {model.labels[0]}
+                    </span>
+                  </div>
+                  <div style={{fontSize:11,color:active?"#2563eb":"#94a3b8",fontStyle:"italic"}}>{model.tip}</div>
                 </div>
-                <input key={"i"+v} value={scaleLabels[v]||""} onChange={e=>setScaleLabels(p=>({...p,[v]:e.target.value}))}
-                  style={{...inp,padding:"8px 12px"}} placeholder={DEFAULT_SCALE_LABELS[v]}/>
-              </>
-            ))}
+              );
+            })}
           </div>
-          <button onClick={()=>setScaleLabels(DEFAULT_SCALE_LABELS)} style={{marginTop:12,padding:"6px 14px",borderRadius:8,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12}}>
-            Restaurar padrão
-          </button>
+          <div style={{marginTop:14,padding:"10px 14px",background:"#f8faff",borderRadius:R.sm,border:"1px solid #dbeafe",fontSize:11,color:"#64748b"}}>
+            ℹ️ A opção <strong>"Não sei avaliar"</strong> aparece em todos os modelos e <strong>nunca entra no cálculo</strong> da média. Ela garante que cada pessoa responda apenas o que realmente observou.
+          </div>
         </div>
         <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15}}>⚠️ Escala Sim/Não/Atenção</h3>
@@ -1504,7 +1694,7 @@ export default function App(){
     const eF=forms[efi];const eB=eF?.blocos[ebi];
     const sBtn=(active)=>({display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:10,border:"none",background:active?`${pc}18`:"transparent",color:active?pc:"#64748b",fontWeight:active?700:400,cursor:"pointer",fontSize:12,marginBottom:2});
     return(
-      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>✏️ Editor de Formulários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Alterações afetam apenas novos preenchimentos</div></div>
           <div style={{display:"flex",gap:8}}><button onClick={saveFormsBtn} style={{...hBtn,background:"#16a34a",fontWeight:700}}>💾 Salvar</button><button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Links</button></div>
@@ -1602,7 +1792,7 @@ export default function App(){
               <div style={{fontSize:10,color:"#94a3b8"}}>blocos</div>
             </div>
           </div>
-          <div style={{background:"#e2e8f0",borderRadius:8,height:4}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:pc,height:4,borderRadius:8,transition:"width 0.4s"}}/></div>
+          <div style={{background:"#e2e8f0",borderRadius:99,height:4}}><div style={{width:`${((fbi+1)/fForm.blocos.length)*100}%`,background:`linear-gradient(90deg,${pc},${pc}bb)`,height:4,borderRadius:99,transition:"width 0.4s ease"}}/></div>
         </div>
       </div>
       <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 80px",flex:1,width:"100%",boxSizing:"border-box"}}>
@@ -1633,24 +1823,34 @@ export default function App(){
                 })}
               </div>
             ) : (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
-                {[1,2,3,4,5,0].map(v=>{
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {[1,2,3,4].map(v=>{
                   const sel=answers[`${fBloc.id}_${i}`]===v;
                   const label=scaleLabels[v]||DEFAULT_SCALE_LABELS[v];
                   return(
                     <button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
-                      style={{display:"flex",flexDirection:"column",alignItems:"center",
-                        justifyContent:"center",
-                        padding:"8px 2px",borderRadius:10,minHeight:58,
+                      style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                        padding:"10px 6px",borderRadius:R.md,minHeight:64,
                         border:`2px solid ${sel?SC[v]:"#e2e8f0"}`,
                         background:sel?SC[v]:"#f8fafc",color:sel?"#fff":"#475569",
-                        cursor:"pointer",fontSize:10,fontWeight:600,transition:"all 0.15s",
-                        width:"100%",boxSizing:"border-box",lineHeight:1.2}}>
-                      {v!==0&&<span style={{fontSize:15,fontWeight:800,lineHeight:1.2}}>{v}</span>}
+                        cursor:"pointer",fontSize:11,fontWeight:600,transition:"all 0.15s",
+                        boxShadow:sel?`0 2px 8px ${SC[v]}44`:"none",
+                        width:"100%",boxSizing:"border-box",lineHeight:1.3}}>
+                      <span style={{fontSize:16,fontWeight:800,lineHeight:1.1,marginBottom:2}}>{v}</span>
                       <span style={{textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:"100%"}}>{label}</span>
                     </button>
                   );
                 })}
+                {(()=>{const sel0=answers[`${fBloc.id}_${i}`]===0;const lbl0=scaleLabels[0]||DEFAULT_SCALE_LABELS[0];return(
+                  <button onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:0}))}
+                    style={{gridColumn:"1 / -1",padding:"9px 16px",borderRadius:R.md,
+                      border:`1.5px dashed ${sel0?"#94a3b8":"#e2e8f0"}`,
+                      background:sel0?"#f1f5f9":"transparent",color:sel0?"#475569":"#94a3b8",
+                      cursor:"pointer",fontSize:12,fontWeight:sel0?600:400,transition:"all 0.15s",
+                      textAlign:"center"}}>
+                    {lbl0}
+                  </button>
+                );})()} 
               </div>
             )}
           </div>
@@ -1687,7 +1887,7 @@ export default function App(){
     <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:480,width:"100%"}}>
         <div style={{...card,textAlign:"center",marginBottom:16}}>
-          <div style={{fontSize:52,marginBottom:8}}>✅</div><OrgLogo org={org} size={56}/>
+          <div style={{width:72,height:72,borderRadius:20,background:"linear-gradient(135deg,#22c55e,#15803d)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,margin:"0 auto 16px",boxShadow:"0 4px 20px #22c55e40"}}>✅</div><OrgLogo org={org} size={48}/>
           <h2 style={{color:"#1e3a8a",margin:"14px 0 8px"}}>Avaliação enviada!</h2>
           <p style={{color:"#64748b",fontSize:13,lineHeight:1.7}}>Obrigado. Sua avaliação foi registrada de forma anônima e contribuirá para o desenvolvimento de {org.name}.</p>
           <div style={{background:"#f0fdf4",borderRadius:10,padding:12,marginTop:16,fontSize:12,color:"#166534"}}>Em conformidade com a LGPD</div>
@@ -1715,7 +1915,7 @@ export default function App(){
       saveLinks(customLinks.filter(l=>l.id!==id));
     }
     return(
-      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div>
             <div style={{fontWeight:800,fontSize:15}}>🔗 Editor de Links — {org.name}</div>
@@ -1730,7 +1930,7 @@ export default function App(){
               ⚠️ Configure a <strong>URL do app</strong> nas ⚙️ Configurações para que os links funcionem corretamente após o deploy.
             </div>
 
-            )}          )}
+            )}
 
           <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:24,fontSize:12,color:"#1e40af"}}>
             💡 Cada formulário pode ter <strong>vários links com títulos diferentes</strong>. Por exemplo, "Avaliação pelos Liderados" pode virar "Avalie seu Líder de Equipe" ou "Avalie a Diretoria" — cada um com seu link próprio.
@@ -1793,7 +1993,7 @@ export default function App(){
       setAvaliados(p=>p.filter(a=>a.id!==id));
     }
     return(
-      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>👥 Avaliados — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre as pessoas que serão avaliadas</div></div>
           <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
@@ -1849,186 +2049,142 @@ export default function App(){
 
   // ── USER LOGIN ──
   if(screen==="user_login"&&org) return(
-    <div style={{minHeight:"100vh",background:"#f0f0f0",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
-      {/* Top color bar */}
-      <div style={{height:80,background:org.primaryColor||"#2563eb",flexShrink:0}}/>
-      {/* Main content */}
-      <div style={{flex:1,padding:"32px 24px 24px",display:"flex",flexDirection:"column",maxWidth:440,margin:"0 auto",width:"100%"}}>
-        {/* Logo + title */}
-        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:48}}>
-          <OrgLogo org={org} size={72}/>
-          <div>
-            <div style={{fontSize:22,fontWeight:800,color:"#1a1a1a",lineHeight:1.2}}>Login</div>
-            <div style={{fontSize:13,color:"#666",marginTop:4}}>{org.name}</div>
-          </div>
+    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",background:"#f5f7ff"}}>
+      {/* Hero colorido */}
+      <div style={{background:`linear-gradient(135deg,${org.primaryColor||"#2563eb"} 0%,${org.primaryColor||"#2563eb"}cc 100%)`,padding:"52px 24px 88px",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-50,right:-50,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
+        <div style={{position:"absolute",bottom:-70,left:-30,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.05)"}}/>
+        <div style={{maxWidth:440,margin:"0 auto",position:"relative",textAlign:"center"}}>
+          <OrgLogo org={org} size={68}/>
+          <h1 style={{fontSize:26,fontWeight:900,color:"#fff",margin:"16px 0 6px",letterSpacing:"-0.02em"}}>{org.name}</h1>
+          <p style={{fontSize:13,color:"rgba(255,255,255,0.75)",margin:0}}>Avaliação 360° — Área do Avaliador</p>
         </div>
-        {/* Fields */}
-        <input type="email" placeholder="Seu email" value={loginEmail}
-          onChange={e=>setLoginEmail(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
-          style={{width:"100%",padding:"18px 20px",borderRadius:14,border:"none",background:"#fff",fontSize:15,outline:"none",marginBottom:16,boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
-        <div style={{position:"relative",marginBottom:6}}>
-          <input type={showPwd?"text":"password"} placeholder="Senha" value={loginSenha}
-            onChange={e=>setLoginSenha(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
-            style={{width:"100%",padding:"18px 56px 18px 20px",borderRadius:14,border:`2px solid ${loginErr?"#ef4444":"transparent"}`,background:"#fff",fontSize:15,outline:"none",boxSizing:"border-box",boxShadow:"0 2px 8px #0001",color:"#333"}}/>
-          <button onClick={()=>setShowPwd(p=>!p)}
-            style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#94a3b8",padding:4}}>
-            {showPwd?"🙈":"👁️"}
-          </button>
-        </div>
-        {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:8,paddingLeft:4}}>{loginErr}</p>}
-        {forgotMode?(
-          <div style={{background:"#eff6ff",borderRadius:14,padding:16,marginTop:8}}>
-            <p style={{fontSize:13,color:"#1e3a8a",fontWeight:700,marginBottom:8}}>Esqueci minha senha</p>
-            <p style={{fontSize:12,color:"#475569",lineHeight:1.7,marginBottom:12}}>
-              Entre em contato com o administrador da sua organização para redefinir sua senha. 
-              O administrador pode alterar sua senha na tela de <strong>🔑 Usuários</strong> do painel administrativo.
-            </p>
-            <button onClick={()=>setForgotMode(false)} style={{fontSize:12,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>← Voltar ao login</button>
+      </div>
+      {/* Card flutuante */}
+      <div style={{flex:1,padding:"0 20px 32px",maxWidth:440,margin:"-44px auto 0",width:"100%",boxSizing:"border-box"}}>
+        <div style={{background:"#fff",borderRadius:R.xl,padding:30,boxShadow:SH.lg}}>
+          <h2 style={{fontSize:17,fontWeight:800,color:"#1e3a8a",marginBottom:4}}>Entrar</h2>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:24}}>Use seu email e senha cadastrados</p>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Email</label>
+            <input type="email" placeholder="seu@email.com" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+              style={{width:"100%",padding:"12px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#dbeafe"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff"}}/>
           </div>
-        ):(
-          <>
-            <button onClick={()=>setForgotMode(true)} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",padding:"4px 0",textAlign:"left",marginTop:4}}>
-              Esqueci minha senha
-            </button>
-            <div style={{display:"flex",justifyContent:"flex-end",marginTop:20}}>
-              <button onClick={handleUserLogin}
-                style={{padding:"15px 48px",borderRadius:12,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 12px #2563eb33"}}>
-                Entrar
-              </button>
+          <div style={{marginBottom:loginErr?4:20,position:"relative"}}>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Senha</label>
+            <input type={showPwd?"text":"password"} placeholder="Sua senha" value={loginSenha} onChange={e=>setLoginSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+              style={{width:"100%",padding:"12px 48px 12px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#dbeafe"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff"}}/>
+            <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:14,bottom:10,background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#94a3b8",padding:4}}>{showPwd?"🙈":"👁️"}</button>
+          </div>
+          {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:16}}>{loginErr}</p>}
+          {forgotMode?(
+            <div style={{background:"#eff6ff",borderRadius:R.md,padding:16,marginBottom:20}}>
+              <p style={{fontSize:13,color:"#1e3a8a",fontWeight:700,marginBottom:8}}>Esqueci minha senha</p>
+              <p style={{fontSize:12,color:"#475569",lineHeight:1.7,marginBottom:12}}>Entre em contato com o administrador. Ele pode redefinir sua senha em <strong>🔑 Usuários</strong>.</p>
+              <button onClick={()=>setForgotMode(false)} style={{fontSize:12,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>← Voltar</button>
             </div>
-          </>
-        )}
-        <p style={{fontSize:11,color:"#94a3b8",marginTop:32,lineHeight:1.7,textAlign:"center"}}>
-          🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal.
-        </p>
+          ):(
+            <>
+              <button onClick={handleUserLogin}
+                style={{width:"100%",padding:"14px 0",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:`0 4px 16px ${org.primaryColor||"#2563eb"}40`,marginBottom:14}}>
+                Entrar →
+              </button>
+              <button onClick={()=>setForgotMode(true)} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",padding:0,display:"block",width:"100%",textAlign:"center"}}>Esqueci minha senha</button>
+            </>
+          )}
+        </div>
+        <p style={{fontSize:11,color:"#94a3b8",marginTop:18,lineHeight:1.7,textAlign:"center"}}>🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados.</p>
       </div>
       <PoweredBy/>
     </div>
   );
 
-  // ── USER DASHBOARD (painel do avaliador) ──
-  if(screen==="user_dash"&&org&&usuarioLogado) return(
-    <div style={{...pg,padding:0}}>
-      <div style={{background:org.primaryColor||"#2563eb",color:"#fff",padding:"16px 20px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <OrgLogo org={org} size={40}/>
-          <div>
-            <div style={{fontWeight:800,fontSize:16}}>Olá, {usuarioLogado.nome.split(" ")[0]}!</div>
-            <div style={{fontSize:12,opacity:0.8,marginTop:2}}>{org.name}</div>
+    // ── USER DASHBOARD (painel do avaliador) ──
+  if(screen==="user_dash"&&org&&usuarioLogado){
+    const concluidas=atribuicoes.filter(a=>a.concluida).length;
+    const total=atribuicoes.length;
+    const pct=total>0?Math.round((concluidas/total)*100):0;
+    return(
+    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",background:"#f5f7ff",display:"flex",flexDirection:"column"}}>
+      {/* Header com gradiente e progress bar */}
+      <div style={{background:`linear-gradient(135deg,${org.primaryColor||"#2563eb"} 0%,${org.primaryColor||"#2563eb"}cc 100%)`,padding:"24px 20px 36px",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-30,right:-30,width:150,height:150,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
+        <div style={{maxWidth:600,margin:"0 auto",position:"relative"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:total>0?18:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}><OrgLogo org={org} size={46}/><div><div style={{fontWeight:800,fontSize:17,color:"#fff",letterSpacing:"-0.01em"}}>Olá, {usuarioLogado.nome.split(" ")[0]}! 👋</div><div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:2}}>{org.name}</div></div></div>
+            <button onClick={()=>{setUsuarioLogado(null);setAtribuicoes([]);setScreen("user_login");}} style={{background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:R.sm,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:600}}>Sair</button>
           </div>
+          {total>0&&(<>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:12,color:"rgba(255,255,255,0.8)"}}>Progresso do ciclo</span>
+              <span style={{fontSize:12,fontWeight:700,color:"#fff"}}>{concluidas}/{total} · {pct}%</span>
+            </div>
+            <div style={{background:"rgba(255,255,255,0.2)",borderRadius:R.full,height:6}}><div style={{width:`${pct}%`,height:6,borderRadius:R.full,background:"#fff",transition:"width 0.6s ease"}}/></div>
+          </>)}
         </div>
-        <button onClick={()=>{setUsuarioLogado(null);setAtribuicoes([]);setScreen("user_login");}}
-          style={{background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:600}}>Sair</button>
       </div>
-      <div style={{maxWidth:600,margin:"0 auto",padding:"24px 16px 40px",width:"100%"}}>
-        {/* Banner senha padrão */}
-        {usuarioLogado && usuarioLogado.senha_hash === simpleHash("avalie360") && !showTrocaSenha && (
-          <div style={{background:"#fefce8",borderRadius:12,padding:"12px 16px",border:"1px solid #fde68a",marginBottom:20,fontSize:13,color:"#92400e",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px 40px",width:"100%",flex:1}}>
+        {usuarioLogado&&usuarioLogado.senha_hash===simpleHash("avalie360")&&!showTrocaSenha&&(
+          <div style={{background:"#fefce8",borderRadius:R.md,padding:"12px 16px",border:"1px solid #fde068",marginBottom:16,fontSize:13,color:"#92400e",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <span>🔑 Você está usando a senha padrão.</span>
-            <button onClick={()=>setShowTrocaSenha(true)}
-              style={{padding:"5px 12px",borderRadius:8,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,marginLeft:"auto"}}>
-              Alterar agora
-            </button>
-            <button onClick={()=>setShowTrocaSenha(false)}
-              style={{padding:"5px 10px",borderRadius:8,border:"1px solid #fde68a",background:"transparent",color:"#92400e",cursor:"pointer",fontSize:11}}>
-              Depois
-            </button>
+            <button onClick={()=>setShowTrocaSenha(true)} style={{padding:"5px 14px",borderRadius:R.sm,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,marginLeft:"auto"}}>Alterar agora</button>
+            <button onClick={()=>setShowTrocaSenha(false)} style={{padding:"5px 10px",borderRadius:R.sm,border:"1px solid #fde068",background:"transparent",color:"#92400e",cursor:"pointer",fontSize:11}}>Depois</button>
           </div>
         )}
-        {/* Painel troca de senha */}
-        {showTrocaSenha && (
-          <div style={{background:"#fff",borderRadius:16,padding:20,border:"1px solid #dbeafe",marginBottom:20,boxShadow:"0 2px 8px #0001"}}>
-            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16}}>🔑 Alterar senha</h3>
+        {showTrocaSenha&&(
+          <div style={{background:"#fff",borderRadius:R.xl,padding:20,border:"1px solid #dbeafe",marginBottom:20,boxShadow:SH.sm}}>
+            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16,fontWeight:700}}>🔑 Alterar senha</h3>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <input type="password" placeholder="Nova senha" value={novaSenha}
-                onChange={e=>setNovaSenha(e.target.value)}
-                style={{padding:"12px 14px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}/>
-              <input type="password" placeholder="Confirmar nova senha" value={confirmaSenha}
-                onChange={e=>setConfirmaSenha(e.target.value)}
-                style={{padding:"12px 14px",borderRadius:10,border:"2px solid #dbeafe",fontSize:13,outline:"none"}}/>
-              {trocaSenhaMsg && <p style={{fontSize:12,color:trocaSenhaMsg.includes("sucesso")?"#16a34a":"#ef4444",margin:0}}>{trocaSenhaMsg}</p>}
+              <input type="password" placeholder="Nova senha (mín. 6 caracteres)" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              <input type="password" placeholder="Confirmar nova senha" value={confirmaSenha} onChange={e=>setConfirmaSenha(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              {trocaSenhaMsg&&<p style={{fontSize:12,color:trocaSenhaMsg.includes("sucesso")?"#16a34a":"#ef4444",margin:0}}>{trocaSenhaMsg}</p>}
               <div style={{display:"flex",gap:8}}>
-                <button onClick={async()=>{
-                  if(novaSenha.length < 6){setTrocaSenhaMsg("Senha deve ter pelo menos 6 caracteres.");return;}
-                  if(novaSenha !== confirmaSenha){setTrocaSenhaMsg("As senhas não coincidem.");return;}
-                  const ok = await updateUsuarioSenha(usuarioLogado.id, novaSenha);
-                  if(ok){
-                    setUsuarioLogado(p=>({...p,senha_hash:simpleHash(novaSenha)}));
-                    setTrocaSenhaMsg("✓ Senha alterada com sucesso!");
-                    setNovaSenha(""); setConfirmaSenha("");
-                    setTimeout(()=>{setShowTrocaSenha(false);setTrocaSenhaMsg("");},2000);
-                  } else { setTrocaSenhaMsg("Erro ao alterar senha. Tente novamente."); }
-                }} style={{padding:"10px 20px",borderRadius:10,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13}}>
-                  Salvar
-                </button>
-                <button onClick={()=>{setShowTrocaSenha(false);setNovaSenha("");setConfirmaSenha("");setTrocaSenhaMsg("");}}
-                  style={{padding:"10px 16px",borderRadius:10,border:"2px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:13}}>
-                  Cancelar
-                </button>
+                <button onClick={async()=>{if(novaSenha.length<6){setTrocaSenhaMsg("Mín. 6 caracteres.");return;}if(novaSenha!==confirmaSenha){setTrocaSenhaMsg("Senhas não coincidem.");return;}const ok=await updateUsuarioSenha(usuarioLogado.id,novaSenha);if(ok){setUsuarioLogado(p=>({...p,senha_hash:simpleHash(novaSenha)}));setTrocaSenhaMsg("✓ Senha alterada com sucesso!");setNovaSenha("");setConfirmaSenha("");setTimeout(()=>{setShowTrocaSenha(false);setTrocaSenhaMsg("");},2000);}else setTrocaSenhaMsg("Erro ao alterar senha.");}} style={{padding:"10px 20px",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13,flex:2}}>Salvar</button>
+                <button onClick={()=>{setShowTrocaSenha(false);setNovaSenha("");setConfirmaSenha("");setTrocaSenhaMsg("");}} style={{padding:"10px 16px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:13,flex:1}}>Cancelar</button>
               </div>
             </div>
           </div>
         )}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-          <div>
-            <h2 style={{color:"#1e3a8a",fontSize:16,margin:0}}>Suas avaliações</h2>
-            <p style={{fontSize:12,color:"#64748b",marginTop:4}}>Ciclo: <strong>{org.activeCiclo||CICLOS[0]}</strong></p>
-          </div>
-          <div style={{background:"#eff6ff",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,color:org.primaryColor||"#2563eb"}}>
-            {atribuicoes.filter(a=>a.concluida).length}/{atribuicoes.length} concluídas
-          </div>
+        <div style={{marginBottom:16}}>
+          <h2 style={{color:"#1e3a8a",fontSize:16,margin:0,fontWeight:800}}>Suas avaliações</h2>
+          <p style={{fontSize:12,color:"#64748b",marginTop:3}}>Ciclo: <strong>{org.activeCiclo||CICLOS[0]}</strong></p>
         </div>
         {atribuicoes.length===0?(
-          <div style={{...card,textAlign:"center",padding:40}}>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:48,boxShadow:SH.sm,textAlign:"center"}}>
             <div style={{fontSize:40,marginBottom:12}}>📋</div>
-            <p style={{color:"#64748b"}}>Nenhuma avaliação atribuída ainda.</p>
-            <p style={{color:"#94a3b8",fontSize:12,marginTop:8}}>Aguarde seu administrador configurar as avaliações.</p>
+            <p style={{color:"#475569",fontSize:14,fontWeight:600}}>Nenhuma avaliação atribuída</p>
+            <p style={{color:"#94a3b8",fontSize:12,marginTop:6}}>Aguarde o administrador configurar.</p>
           </div>
         ):(
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {atribuicoes.map(at=>{
               const formDef=forms.find(f=>f.id===at.form_id);
               if(!formDef) return null;
               return(
-                <div key={at.id} style={{background:"#fff",borderRadius:16,padding:"16px 18px",display:"flex",alignItems:"center",gap:14,
-                  opacity:at.concluida?0.65:1,
-                  boxShadow:"0 2px 8px #0001",
-                  borderLeft:`4px solid ${at.concluida?"#10b981":org.primaryColor||"#2563eb"}`}}>
-                  <span style={{fontSize:24}}>{formDef.icon}</span>
+                <div key={at.id} style={{background:"#fff",borderRadius:R.lg,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,
+                  opacity:at.concluida?0.7:1,
+                  boxShadow:at.concluida?"none":SH.sm,
+                  border:`1.5px solid ${at.concluida?"#86efac":"#e2e8f0"}`,
+                  borderLeft:`4px solid ${at.concluida?"#22c55e":org.primaryColor||"#2563eb"}`}}>
+                  <span style={{fontSize:24,flexShrink:0}}>{formDef.icon}</span>
                   <div style={{flex:1}}>
-                    {at.avaliado_nome ? (
-                      <>
-                        <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>
-                          Avalie {at.avaliado_nome}{at.avaliado_funcao ? ` como ${at.avaliado_funcao}` : ""}
-                        </div>
-
-                      </>
-                    ) : (
+                    {at.avaliado_nome?(
+                      <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>Avalie {at.avaliado_nome}{at.avaliado_funcao?` · ${at.avaliado_funcao}`:""}</div>
+                    ):(
                       <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{formDef.title}</div>
                     )}
-                    {at.concluida&&<div style={{fontSize:11,color:"#10b981",marginTop:2}}>✓ Concluída</div>}
+                    {at.concluida?<div style={{fontSize:12,color:"#22c55e",marginTop:3,fontWeight:600}}>✓ Concluída</div>:<div style={{fontSize:12,color:"#94a3b8",marginTop:3}}>{formDef.title}</div>}
                   </div>
                   {!at.concluida&&(
                     <button onClick={async()=>{
                       const idx=forms.findIndex(f=>f.id===at.form_id);
-                      setFfi(idx);
-                      setUrlAvaliadoNome(at.avaliado_nome||"");
-                      setUrlAvaliadoId(at.avaliado_id||"");
-                      setAtribucaoAtual(at);
-                      setLgpd(false);
-                      // Carregar progresso salvo se existir
-                      const prog = usuarioLogado ? await loadProgress(usuarioLogado.id, at.id) : null;
-                      if(prog){
-                        setFbi(prog.bloco_atual||0);
-                        setAnswers(prog.answers||{});
-                        setOpenAns(prog.open_answers||{});
-                      } else {
-                        setFbi(0);setAnswers({});setOpenAns({});
-                      }
+                      setFfi(idx);setUrlAvaliadoNome(at.avaliado_nome||"");setUrlAvaliadoId(at.avaliado_id||"");
+                      setAtribucaoAtual(at);setLgpd(false);
+                      const prog=usuarioLogado?await loadProgress(usuarioLogado.id,at.id):null;
+                      if(prog){setFbi(prog.bloco_atual||0);setAnswers(prog.answers||{});setOpenAns(prog.open_answers||{});}
+                      else{setFbi(0);setAnswers({});setOpenAns({});}
                       setScreen(prog?"form":"lgpd");
-                    }} style={{...btn(org.primaryColor||"#2563eb"),padding:"8px 16px",fontSize:12}}>
+                    }} style={{padding:"9px 18px",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>
                       Responder →
                     </button>
                   )}
@@ -2037,19 +2193,19 @@ export default function App(){
             })}
           </div>
         )}
-        <div style={{marginTop:24,padding:"12px 16px",background:"#f0fdf4",borderRadius:12,border:"1px solid #bbf7d0",fontSize:11,color:"#166534"}}>
-          🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados, sem identificação pessoal. Em conformidade com a LGPD.
+        <div style={{marginTop:24,padding:"12px 16px",background:"#f0fdf4",borderRadius:R.md,border:"1px solid #86efac",fontSize:11,color:"#166534"}}>
+          🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados. LGPD conforme.
         </div>
       </div>
       <PoweredBy/>
     </div>
-  );
+  );}
 
-  // ── USUARIOS MANAGEMENT ──
+    // ── USUARIOS MANAGEMENT ──
   if(screen==="usuarios"&&org){
     const pc2=org.primaryColor||"#2563eb";
     return(
-      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc2),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>🔑 Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre os avaliadores e configure suas avaliações</div></div>
           <div style={{display:"flex",gap:8}}>
@@ -2059,7 +2215,7 @@ export default function App(){
         </div>
         <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
-            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o identificador em ⚙️ Config)"}/login</strong>
+            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
           </div>
 
           {/* Add user */}
@@ -2222,7 +2378,7 @@ export default function App(){
 
     const uid="imp-file-"+Math.random().toString(36).slice(2,6);
     return(
-      <div style={{minHeight:"100vh",background:"#f8faff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc3),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>📥 Importar Usuários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Importe em massa via planilha Excel</div></div>
           <button onClick={()=>setScreen("usuarios")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
