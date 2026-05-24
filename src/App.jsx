@@ -274,25 +274,40 @@ async function saveOrgs(orgs) {
 }
 
 async function upsertOrg(org) {
+  // Build the base payload with columns that always exist
+  const payload = {
+    id: org.id, name: org.name,
+    admin_password: org.adminPassword,
+    primary_color: org.primaryColor || "#2563eb",
+    logo_url: org.logoUrl || "",
+    base_url: org.baseUrl || "",
+    active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
+    scale_labels: org.scaleLabels || {},
+    slug: org.slug || "",
+    created_at: org.createdAt || new Date().toISOString(),
+  };
+  // Try with yesno_labels first; fall back without it if the column doesn't exist yet
   try {
     await sbFetch("organizations", {
       method: "POST",
       prefer: "resolution=merge-duplicates,return=minimal",
-      body: JSON.stringify({
-        id: org.id, name: org.name,
-        admin_password: org.adminPassword,
-        primary_color: org.primaryColor || "#2563eb",
-        logo_url: org.logoUrl || "",
-        base_url: org.baseUrl || "",
-        active_ciclo: org.activeCiclo || "2025 - 1º Semestre",
-        scale_labels: org.scaleLabels || {},
-        slug: org.slug || "",
-        yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS,
-        created_at: org.createdAt || new Date().toISOString(),
-      }),
+      body: JSON.stringify({ ...payload, yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS }),
     });
     return true;
-  } catch(e) { console.error("upsertOrg:", e); return false; }
+  } catch(e) {
+    // If error mentions yesno_labels column, retry without it
+    if (e.message && e.message.includes("yesno_labels")) {
+      try {
+        await sbFetch("organizations", {
+          method: "POST",
+          prefer: "resolution=merge-duplicates,return=minimal",
+          body: JSON.stringify(payload),
+        });
+        return true;
+      } catch(e2) { console.error("upsertOrg fallback:", e2); return false; }
+    }
+    console.error("upsertOrg:", e); return false;
+  }
 }
 
 async function deleteOrgFromDB(orgId) {
@@ -1226,7 +1241,7 @@ export default function App(){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME *</label><input value={nOrg.name} onChange={e=>setNOrg(p=>({...p,name:e.target.value}))} style={inp} placeholder="Ex: Sepal — Servindo aos que Servem"/></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SENHA DO ADMIN *</label><input type="password" value={nOrg.adminPassword} onChange={e=>setNOrg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Senha"/></div>
-            <div style={{gridColumn:"1 / -1"}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SLUG DO LINK <span style={{fontWeight:400,color:"#94a3b8"}}>(opcional — define a parte amigável da URL, ex: "sepal")</span></label><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>sepal360.vercel.app/#/fill/</span><input value={nOrg.slug||""} onChange={e=>setNOrg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/></div></div>
+            <div style={{gridColumn:"1 / -1"}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>IDENTIFICADOR DA URL <span style={{fontWeight:400,color:"#94a3b8"}}>(opcional — nome curto que aparece no link, ex: "sepal")</span></label><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>sepal360.vercel.app/#/fill/</span><input value={nOrg.slug||""} onChange={e=>setNOrg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>COR PRINCIPAL</label><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="color" value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{width:44,height:38,borderRadius:8,border:"2px solid #dbeafe",cursor:"pointer",padding:2}}/><input value={nOrg.primaryColor} onChange={e=>setNOrg(p=>({...p,primaryColor:e.target.value}))} style={{...inp,flex:1}}/></div></div>
             <div><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label><LogoUploader value={nOrg.logoUrl} onChange={url=>setNOrg(p=>({...p,logoUrl:url}))} color={nOrg.primaryColor}/></div>
           </div>
@@ -1422,12 +1437,12 @@ export default function App(){
           <h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15}}>Identidade da organização</h3>
           <div style={{marginBottom:14}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOME</label><input value={cfg.name} onChange={e=>setCfg(p=>({...p,name:e.target.value}))} style={inp}/></div>
           <div style={{marginBottom:14}}>
-            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>SLUG <span style={{fontWeight:400,color:"#94a3b8"}}>(parte amigável da URL, ex: "sepal")</span></label>
+            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>IDENTIFICADOR DA URL <span style={{fontWeight:400,color:"#94a3b8"}}>(nome curto que aparece no link, ex: "sepal")</span></label>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>avalie360.vercel.app/</span>
               <input value={cfg.slug||""} onChange={e=>setCfg(p=>({...p,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"-")}))} style={{...inp,flex:1}} placeholder="sepal"/>
             </div>
-            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login: <strong>{cfg.baseUrl||"avalie360.vercel.app"}/{cfg.slug||"slug"}/login</strong></p>
+            <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Link de login: <strong>{cfg.baseUrl||"avalie360.vercel.app"}/{cfg.slug||"(identificador)"}/login</strong></p>
           </div>
           <div style={{marginBottom:14}}>
             <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:6}}>LOGOMARCA</label>
@@ -2044,7 +2059,7 @@ export default function App(){
         </div>
         <div style={{maxWidth:800,margin:"0 auto",padding:"24px 16px 60px"}}>
           <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",border:"1px solid #bfdbfe",marginBottom:20,fontSize:12,color:"#1e40af"}}>
-            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o slug em ⚙️ Config)"}/login</strong>
+            💡 Cadastre os avaliadores, defina as avaliações de cada um. O link de login da organização é: <strong>{(org.baseUrl||"avalie360.vercel.app")}/{org.slug||"(configure o identificador em ⚙️ Config)"}/login</strong>
           </div>
 
           {/* Add user */}
