@@ -214,7 +214,7 @@ const DEFAULT_FORMS = [
         ],
         abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
     ]},
-  { id:"liderados", title:"Avaliação pelos Liderados", icon:"🌿", subtitle:"Sua perspectiva importa e será tratada com cuidado",
+  { id:"liderados", title:"Avaliação pelos Liderados", icon:"⬆️", subtitle:"Sua perspectiva importa e será tratada com cuidado",
     blocos:[
       { id:"estilo", title:"Estilo de liderança", icon:"🧭",
         perguntas:[
@@ -363,7 +363,7 @@ const DEFAULT_FORMS_NEUTRO = [
         perguntas:["Percebo sinais de sobrecarga.","Percebo sinais de isolamento.","Percebo sinais de desgaste emocional.","Percebo perda de motivação.","Percebo tensões relacionais recorrentes.","Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento."],
         abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
     ]},
-  { id:"liderados", title:"Avaliação pelos Liderados", icon:"🌿", subtitle:"Sua perspectiva importa e será tratada com cuidado",
+  { id:"liderados", title:"Avaliação pelos Liderados", icon:"⬆️", subtitle:"Sua perspectiva importa e será tratada com cuidado",
     blocos:[
       { id:"estilo", title:"Estilo de liderança", icon:"🧭",
         perguntas:["Desenvolve ambiente seguro para diálogo.","Demonstra disposição e engajamento.","Escuta as pessoas com atenção.","Trata as pessoas com respeito.","Dá direcionamentos claros quando necessário.","Demonstra equilíbrio nas decisões.","Assume responsabilidade pelos erros.","Demonstra coerência entre discurso e prática."],
@@ -1008,10 +1008,9 @@ function StatusBadge({ok}){
 
 // KpiCard component
 function KpiCard({icon,val,label,color}){
-  return(<div style={{background:"#fff",borderRadius:R.lg,padding:"18px 16px",textAlign:"center",boxShadow:SH.sm,border:"1px solid rgba(0,0,0,0.04)"}}>
-    <div style={{fontSize:24,marginBottom:6}}>{icon}</div>
-    <div style={{fontSize:26,fontWeight:800,color:color||"#1e3a8a",letterSpacing:"-0.02em",lineHeight:1}}>{val}</div>
-    <div style={{fontSize:11,color:"#94a3b8",marginTop:4,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</div>
+  return(<div style={{background:"#fff",borderRadius:R.md,padding:"16px 14px",textAlign:"center",border:"1px solid #e5e7eb"}}>
+    <div style={{fontSize:22,fontWeight:700,color:color||"#111827",letterSpacing:"-0.02em",lineHeight:1,marginBottom:4}}>{val}</div>
+    <div style={{fontSize:11,color:"#6b7280",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</div>
   </div>);
 }
 
@@ -1100,11 +1099,6 @@ export default function App(){
   const [novaSenha,setNovaSenha]=useState("");
   const [confirmaSenha,setConfirmaSenha]=useState("");
   const [trocaSenhaMsg,setTrocaSenhaMsg]=useState("");
-  // New features: tabs, status, comparativo
-  const [dashTab,setDashTab]=useState("resultados");
-  const [statusData,setStatusData]=useState(null);
-  const [loadingStatus,setLoadingStatus]=useState(false);
-
   useEffect(()=>{
     async function init(){
       const ao=await loadOrgs();setOrgs(ao);
@@ -1306,15 +1300,6 @@ export default function App(){
     setLoadingStatus(false);
   }
 
-  async function loadStatusData(){
-    if(!org||!dForm)return;
-    setLoadingStatus(true);
-    const[allAtribs,allUsrs]=await Promise.all([loadAtribuicoesOrg(org.id,dci),loadUsuarios(org.id)]);
-    const filtered=allAtribs.filter(a=>a.form_id===dForm.id&&(dAvaliado===""||a.avaliado_id===dAvaliado));
-    const userMap={};allUsrs.forEach(u=>{userMap[u.id]=u;});
-    setStatusData({atribs:filtered,userMap});
-    setLoadingStatus(false);
-  }
   async function loginSuper(){if(superP===SUPER_ADMIN_PASSWORD){setSuperE(false);setScreen("super");}else setSuperE(true);}
   async function loginOrg(o){
     if(orgP===o.adminPassword){
@@ -1400,19 +1385,19 @@ export default function App(){
   function addAb(fi,bi){const f=clone(forms);f[fi].blocos[bi].abertas.push("Nova pergunta aberta…");setForms(f);}
   function updBT(fi,bi,v){const f=clone(forms);f[fi].blocos[bi].title=san(v);setForms(f);}
 
-  const pg={minHeight:"100vh",background:"#f0f4ff",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"};
-  const card={background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"};
+  const pg={minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"};
+  const card={background:"#fff",borderRadius:R.lg,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",border:"1px solid #e8ecf0"};
   const btn=(c=pc)=>({padding:"10px 20px",borderRadius:R.md,border:"none",background:c,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13,letterSpacing:"0.01em",transition:"opacity 0.15s"});
   const btnO={padding:"10px 20px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:600,fontSize:13};
   const inp={width:"100%",padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",background:"#fff"};
-  const hdr=(c=pc)=>({background:c,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 10px rgba(0,0,0,0.12)"});
+  const hdr=(c=pc)=>({background:c,color:"#fff",padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"none",borderBottom:"1px solid rgba(0,0,0,0.08)"});
   const hBtn={border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"};
   const tabBtn=(active)=>({padding:"8px 18px",borderRadius:R.sm,border:"none",background:active?pc:"transparent",color:active?"#fff":"#64748b",cursor:"pointer",fontWeight:active?700:500,fontSize:13,transition:"all 0.15s"});
 
   if(screen==="loading") return(
     <div style={{...pg,alignItems:"center",justifyContent:"center",background:"linear-gradient(155deg,#eef2ff,#e0e7ff,#eff6ff)"}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14}}>
-        <div style={{width:52,height:52,borderRadius:14,background:"linear-gradient(135deg,#2563eb,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:"0 4px 20px #2563eb44"}}>🔗</div>
+        <div style={{width:52,height:52,borderRadius:14,background:"linear-gradient(135deg,#2563eb,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,boxShadow:"0 4px 20px #2563eb44",letterSpacing:0}}>◎</div>
         <div style={{fontSize:13,color:"#94a3b8",letterSpacing:"0.04em"}}>Carregando…</div>
       </div>
     </div>
@@ -1445,27 +1430,30 @@ export default function App(){
   }
 
   if(screen==="home") return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#eef2ff 0%,#e0e7ff 55%,#eff6ff 100%)"}}>
-      <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
-        <div style={{marginBottom:32}}>
-          <div style={{width:76,height:76,borderRadius:22,background:"linear-gradient(135deg,#2563eb,#1e40af)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,margin:"0 auto 20px",boxShadow:"0 8px 32px #2563eb2e"}}>🔗</div>
-          <h1 style={{fontSize:30,fontWeight:900,color:"#1e3a8a",margin:"0 0 10px",letterSpacing:"-0.025em"}}>Avaliação 360°</h1>
-          <p style={{color:"#64748b",fontSize:14,lineHeight:1.7}}>Para responder, use o link específico que sua organização compartilhou com você.</p>
+    <div style={{minHeight:"100vh",background:"#ffffff",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{maxWidth:380,width:"100%",textAlign:"center"}}>
+        {/* Logo */}
+        <div style={{width:64,height:64,borderRadius:18,background:"#2563eb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,margin:"0 auto 20px",color:"#fff",fontWeight:300,lineHeight:1}}>◎</div>
+        <h1 style={{fontSize:24,fontWeight:700,color:"#111827",margin:"0 0 8px",letterSpacing:"-0.02em"}}>Avalie360</h1>
+        <p style={{color:"#6b7280",fontSize:14,margin:"0 0 36px",lineHeight:1.6}}>A forma mais simples de implantar avaliação 360° de verdade.</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button onClick={()=>setScreen("org_list")}
+            style={{padding:"12px 20px",borderRadius:R.md,border:"none",background:"#2563eb",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:14}}>
+            Acessar painel
+          </button>
+          <button onClick={()=>setScreen("super_login")}
+            style={{padding:"10px 20px",borderRadius:R.md,border:"1px solid #e5e7eb",background:"#fff",color:"#9ca3af",cursor:"pointer",fontWeight:400,fontSize:12}}>
+            Super Admin
+          </button>
         </div>
-        <div style={{...card,marginBottom:12,padding:30}}>
-          <p style={{color:"#94a3b8",fontSize:11,marginBottom:20,textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700}}>Área administrativa</p>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <button onClick={()=>setScreen("org_list")} style={{...btn("#2563eb"),width:"100%",padding:"14px 20px",fontSize:14,borderRadius:R.lg,boxShadow:"0 4px 16px #2563eb22"}}>🏢 Acesso Organizacional</button>
-            <button onClick={()=>setScreen("super_login")} style={{...btnO,width:"100%",fontSize:12,color:"#94a3b8",border:"1.5px solid #e2e8f0"}}>🔒 Super Admin · Conectando Gente</button>
-          </div>
-        </div>
-        <PoweredBy/>
       </div>
+      <PoweredBy/>
     </div>
   );
 
+  
   if(screen==="super_login") return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#0f172a,#1e3a8a)"}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"#0f172a"}}>
       <div style={{...card,maxWidth:360,width:"100%",textAlign:"center"}}>
         <div style={{fontSize:40,marginBottom:12}}>🔒</div><h2 style={{color:"#1e3a8a",marginBottom:4}}>Super Admin</h2><p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Conectando Gente</p>
         <input type="password" placeholder="Senha master" value={superP} onChange={e=>setSuperP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&loginSuper()} style={{...inp,border:`2px solid ${superE?"#ef4444":"#dbeafe"}`,marginBottom:6}}/>
@@ -1557,7 +1545,7 @@ export default function App(){
   );
 
   if(screen==="org_list") return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#eef2ff,#eff6ff)"}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"#f8f9fa"}}>
       <div style={{maxWidth:440,width:"100%"}}>
         <div style={{...card,marginBottom:16}}>
           <h2 style={{color:"#1e3a8a",marginBottom:4,fontSize:18}}>🏢 Acesso Organizacional</h2>
@@ -1578,7 +1566,7 @@ export default function App(){
   );
 
   if(screen==="org_login"&&org) return(
-    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(155deg,#eef2ff,#eff6ff)"}}>
+    <div style={{...pg,alignItems:"center",justifyContent:"center",padding:24,background:"#f8f9fa"}}>
       <div style={{...card,maxWidth:360,width:"100%",textAlign:"center"}}>
         <OrgLogo org={org} size={64}/><h2 style={{color:"#1e3a8a",margin:"14px 0 4px",fontSize:18}}>{org.name}</h2><p style={{color:"#64748b",fontSize:12,marginBottom:24}}>Painel administrativo</p>
         <div style={{position:"relative",marginBottom:6}}>
@@ -1599,7 +1587,7 @@ export default function App(){
 
   if(screen==="dash"&&org){
     const links=getLinks();
-    return(<div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",padding:0}}>
+    return(<div style={{minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",padding:0}}>
       {/* Header */}
       <div style={{background:pc,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 10px rgba(0,0,0,0.14)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={36}/><div><div style={{fontWeight:800,fontSize:15,letterSpacing:"-0.01em"}}>{org.name}</div><div style={{fontSize:11,opacity:0.8,marginTop:1}}>Painel administrativo · Avaliação 360°</div></div></div>
@@ -1613,7 +1601,7 @@ export default function App(){
       </div>
       <div style={{maxWidth:960,margin:"0 auto",padding:"24px 16px 48px",width:"100%"}}>
         {/* Links colapsável */}
-        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}>
+        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><h3 style={{color:"#1e3a8a",fontSize:15,margin:0,fontWeight:700}}>🔗 Links de acesso</h3><p style={{fontSize:11,color:"#94a3b8",marginTop:3}}>Compartilhe com os avaliadores</p></div>
             <button onClick={()=>setShowLinks(p=>!p)} style={{padding:"7px 16px",borderRadius:R.sm,border:"1.5px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:12,fontWeight:600}}>{showLinks?"▲ Ocultar":"▼ Mostrar"}</button>
@@ -1628,7 +1616,7 @@ export default function App(){
           </>)}
         </div>
         {/* Filtros */}
-        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}>
+        <div style={{background:"#fff",borderRadius:R.xl,padding:20,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
           <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo</label><select value={dci} onChange={e=>{setDci(e.target.value);setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div style={{flex:1,minWidth:130}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Formulário</label><select value={dfi} onChange={e=>{setDfi(Number(e.target.value));setStatusData(null);}} style={{width:"100%",padding:"10px 12px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",background:"#fff"}}>{forms.map((f,i)=><option key={f.id} value={i}>{f.icon} {f.title}</option>)}</select></div>
@@ -1651,7 +1639,7 @@ export default function App(){
           <KpiCard icon="💬" val={abList.length} label="Reflexões" color="#8b5cf6"/>
         </div>
         {/* Abas */}
-        <div style={{background:"#fff",borderRadius:R.xl,padding:8,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}>
+        <div style={{background:"#fff",borderRadius:R.xl,padding:8,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}>
           <div style={{display:"flex",gap:4}}>
             {[{id:"resultados",label:"📊 Resultados"},{id:"status",label:"👁 Status"},{id:"comparativo",label:"📈 Evolução"}].map(t=>(
               <button key={t.id} onClick={()=>{setDashTab(t.id);if(t.id==="status")loadStatusData();}}
@@ -1663,15 +1651,15 @@ export default function App(){
         </div>
         {/* Resultados */}
         {dashTab==="resultados"&&(dData.length===0?(
-          <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
         ):(<>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
-          {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
+          {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
         </>))}
         {/* Status */}
-        {dashTab==="status"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}>
+        {dashTab==="status"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
             <div><h3 style={{color:"#1e3a8a",fontSize:15,margin:0,fontWeight:700}}>👁 Status em Tempo Real</h3><p style={{fontSize:12,color:"#94a3b8",marginTop:4}}>Ciclo {dci} · {dForm?.title}</p></div>
             <button onClick={loadStatusData} style={{padding:"8px 18px",borderRadius:R.md,border:"none",background:pc,color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12}}>{loadingStatus?"⏳ Carregando…":"↻ Atualizar"}</button>
@@ -1697,7 +1685,7 @@ export default function App(){
           })()}
         </div>)}
         {/* Comparativo */}
-        {dashTab==="comparativo"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}>
+        {dashTab==="comparativo"&&(<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #e8ecf0"}}>
           <h3 style={{color:"#1e3a8a",fontSize:15,margin:"0 0 6px",fontWeight:700}}>📈 Evolução entre Ciclos</h3>
           <p style={{fontSize:12,color:"#94a3b8",marginBottom:20}}>Selecione um avaliado no filtro acima para ver a evolução semestral.</p>
           {!dAvaliado?(<div style={{textAlign:"center",padding:"44px 0",color:"#94a3b8"}}><div style={{fontSize:36,marginBottom:12}}>👤</div><p style={{fontSize:13}}>Selecione um avaliado para ver a evolução.</p></div>):
@@ -1716,7 +1704,7 @@ export default function App(){
   }
 
     if(screen==="settings"&&org&&cfg) return(
-    <div style={{...pg,padding:0,background:"#f5f7ff"}}>
+    <div style={{...pg,padding:0,background:"#f8f9fa"}}>
       <div style={hdr(pc)}><div style={{fontWeight:800,fontSize:15}}>⚙️ Configurações — {org.name}</div><button onClick={()=>setScreen("dash")} style={hBtn}>← Voltar</button></div>
       <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px 40px",width:"100%",flex:1}}>
         <div style={{...card,marginBottom:16}}>
@@ -1815,7 +1803,7 @@ export default function App(){
     const eF=forms[efi];const eB=eF?.blocos[ebi];
     const sBtn=(active)=>({display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:10,border:"none",background:active?`${pc}18`:"transparent",color:active?pc:"#64748b",fontWeight:active?700:400,cursor:"pointer",fontSize:12,marginBottom:2});
     return(
-      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>✏️ Editor de Formulários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Alterações afetam apenas novos preenchimentos</div></div>
           <div style={{display:"flex",gap:8}}><button onClick={saveFormsBtn} style={{...hBtn,background:"#16a34a",fontWeight:700}}>💾 Salvar</button><button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Links</button></div>
@@ -1924,7 +1912,7 @@ export default function App(){
           </div>
         </div>
         {fBloc.perguntas.map((p,i)=>(
-          <div key={i} style={{marginBottom:16,background:"#fff",borderRadius:14,padding:"16px",boxShadow:"0 1px 4px #0001"}}>
+          <div key={i} style={{marginBottom:10,background:"#fff",borderRadius:R.md,padding:"14px 16px",border:"1px solid #e5e7eb"}}>
             <p style={{color:"#1e293b",fontSize:14,lineHeight:1.6,marginBottom:12,fontWeight:500}}>{p}</p>
             {fBloc.scaleType==="yesno" ? (
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -1977,7 +1965,7 @@ export default function App(){
           </div>
         ))}
         {fBloc.abertas?.length>0&&(
-          <div style={{background:"#eff6ff",borderRadius:14,padding:18,border:"1px solid #bfdbfe",marginTop:8}}>
+          <div style={{background:"#f8f9fa",borderRadius:R.md,padding:16,border:"1px solid #e5e7eb",marginTop:8}}>
             <p style={{fontSize:11,fontWeight:700,color:pc,textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>Reflexões abertas</p>
             {fBloc.abertas.map((a,i)=>(
               <div key={i} style={{marginBottom:14}}>
@@ -2036,7 +2024,7 @@ export default function App(){
       saveLinks(customLinks.filter(l=>l.id!==id));
     }
     return(
-      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div>
             <div style={{fontWeight:800,fontSize:15}}>🔗 Editor de Links — {org.name}</div>
@@ -2114,7 +2102,7 @@ export default function App(){
       setAvaliados(p=>p.filter(a=>a.id!==id));
     }
     return(
-      <div style={{minHeight:"100vh",background:"#f5f7ff",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>👥 Avaliados — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Cadastre as pessoas que serão avaliadas</div></div>
           <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
@@ -2170,131 +2158,145 @@ export default function App(){
 
   // ── USER LOGIN ──
   if(screen==="user_login"&&org) return(
-    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",background:"#f5f7ff"}}>
-      {/* Hero colorido */}
-      <div style={{background:`linear-gradient(135deg,${org.primaryColor||"#2563eb"} 0%,${org.primaryColor||"#2563eb"}cc 100%)`,padding:"52px 24px 88px",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",top:-50,right:-50,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
-        <div style={{position:"absolute",bottom:-70,left:-30,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.05)"}}/>
-        <div style={{maxWidth:440,margin:"0 auto",position:"relative",textAlign:"center"}}>
-          <OrgLogo org={org} size={68}/>
-          <h1 style={{fontSize:26,fontWeight:900,color:"#fff",margin:"16px 0 6px",letterSpacing:"-0.02em"}}>{org.name}</h1>
-          <p style={{fontSize:13,color:"rgba(255,255,255,0.75)",margin:0}}>Avaliação 360° — Área do Avaliador</p>
+    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"#f8f9fa",padding:24}}>
+      <div style={{width:"100%",maxWidth:400}}>
+        {/* Logo + org name */}
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <OrgLogo org={org} size={56}/>
+          <h1 style={{fontSize:20,fontWeight:700,color:"#111827",margin:"14px 0 4px"}}>{org.name}</h1>
+          <p style={{fontSize:13,color:"#6b7280",margin:0}}>Avaliação 360°</p>
         </div>
-      </div>
-      {/* Card flutuante */}
-      <div style={{flex:1,padding:"0 20px 32px",maxWidth:440,margin:"-44px auto 0",width:"100%",boxSizing:"border-box"}}>
-        <div style={{background:"#fff",borderRadius:R.xl,padding:30,boxShadow:SH.lg}}>
-          <h2 style={{fontSize:17,fontWeight:800,color:"#1e3a8a",marginBottom:4}}>Entrar</h2>
-          <p style={{fontSize:12,color:"#94a3b8",marginBottom:24}}>Use seu email e senha cadastrados</p>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Email</label>
-            <input type="email" placeholder="seu@email.com" value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
-              style={{width:"100%",padding:"12px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#dbeafe"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff"}}/>
+        {/* Card */}
+        <div style={{background:"#fff",borderRadius:R.lg,padding:"28px 28px 24px",border:"1px solid #e5e7eb",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>Email</label>
+            <input type="email" placeholder="seu@email.com" value={loginEmail}
+              onChange={e=>setLoginEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+              style={{width:"100%",padding:"10px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#d1d5db"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff",color:"#111827"}}/>
           </div>
-          <div style={{marginBottom:loginErr?4:20,position:"relative"}}>
-            <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Senha</label>
-            <input type={showPwd?"text":"password"} placeholder="Sua senha" value={loginSenha} onChange={e=>setLoginSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
-              style={{width:"100%",padding:"12px 48px 12px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#dbeafe"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff"}}/>
-            <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:14,bottom:10,background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#94a3b8",padding:4}}>{showPwd?"🙈":"👁️"}</button>
+          <div style={{marginBottom:loginErr?8:20,position:"relative"}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>Senha</label>
+            <input type={showPwd?"text":"password"} placeholder="••••••••" value={loginSenha}
+              onChange={e=>setLoginSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUserLogin()}
+              style={{width:"100%",padding:"10px 44px 10px 14px",borderRadius:R.md,border:`1.5px solid ${loginErr?"#ef4444":"#d1d5db"}`,fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff",color:"#111827"}}/>
+            <button onClick={()=>setShowPwd(p=>!p)} style={{position:"absolute",right:12,bottom:10,background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9ca3af",padding:2}}>{showPwd?"🙈":"👁️"}</button>
           </div>
-          {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:16}}>{loginErr}</p>}
+          {loginErr&&<p style={{color:"#ef4444",fontSize:12,marginBottom:16,marginTop:-8}}>{loginErr}</p>}
           {forgotMode?(
-            <div style={{background:"#eff6ff",borderRadius:R.md,padding:16,marginBottom:20}}>
-              <p style={{fontSize:13,color:"#1e3a8a",fontWeight:700,marginBottom:8}}>Esqueci minha senha</p>
-              <p style={{fontSize:12,color:"#475569",lineHeight:1.7,marginBottom:12}}>Entre em contato com o administrador. Ele pode redefinir sua senha em <strong>🔑 Usuários</strong>.</p>
-              <button onClick={()=>setForgotMode(false)} style={{fontSize:12,color:"#2563eb",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>← Voltar</button>
+            <div style={{background:"#f0f9ff",borderRadius:R.sm,padding:"12px 16px",marginBottom:16,border:"1px solid #bae6fd"}}>
+              <p style={{fontSize:13,color:"#0369a1",fontWeight:600,marginBottom:6}}>Esqueci minha senha</p>
+              <p style={{fontSize:12,color:"#0c4a6e",lineHeight:1.7,marginBottom:10}}>Entre em contato com o administrador. Ele pode redefinir sua senha em <strong>Usuários</strong>.</p>
+              <button onClick={()=>setForgotMode(false)} style={{fontSize:12,color:"#0369a1",background:"none",border:"none",cursor:"pointer",fontWeight:600,padding:0}}>← Voltar</button>
             </div>
           ):(
             <>
               <button onClick={handleUserLogin}
-                style={{width:"100%",padding:"14px 0",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",boxShadow:`0 4px 16px ${org.primaryColor||"#2563eb"}40`,marginBottom:14}}>
-                Entrar →
+                style={{width:"100%",padding:"11px 0",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:12}}>
+                Entrar
               </button>
-              <button onClick={()=>setForgotMode(true)} style={{background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",padding:0,display:"block",width:"100%",textAlign:"center"}}>Esqueci minha senha</button>
+              <button onClick={()=>setForgotMode(true)}
+                style={{background:"none",border:"none",color:"#6b7280",fontSize:12,cursor:"pointer",padding:0,display:"block",width:"100%",textAlign:"center"}}>
+                Esqueci minha senha
+              </button>
             </>
           )}
         </div>
-        <p style={{fontSize:11,color:"#94a3b8",marginTop:18,lineHeight:1.7,textAlign:"center"}}>🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados.</p>
+        <p style={{fontSize:11,color:"#9ca3af",marginTop:16,lineHeight:1.6,textAlign:"center"}}>🔒 Suas respostas são anônimas e protegidas pela LGPD.</p>
       </div>
       <PoweredBy/>
     </div>
   );
 
-    // ── USER DASHBOARD (painel do avaliador) ──
   if(screen==="user_dash"&&org&&usuarioLogado){
     const concluidas=atribuicoes.filter(a=>a.concluida).length;
     const total=atribuicoes.length;
     const pct=total>0?Math.round((concluidas/total)*100):0;
     return(
-    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",background:"#f5f7ff",display:"flex",flexDirection:"column"}}>
-      {/* Header com gradiente e progress bar */}
-      <div style={{background:`linear-gradient(135deg,${org.primaryColor||"#2563eb"} 0%,${org.primaryColor||"#2563eb"}cc 100%)`,padding:"24px 20px 36px",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",top:-30,right:-30,width:150,height:150,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
-        <div style={{maxWidth:600,margin:"0 auto",position:"relative"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:total>0?18:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:14}}><OrgLogo org={org} size={46}/><div><div style={{fontWeight:800,fontSize:17,color:"#fff",letterSpacing:"-0.01em"}}>Olá, {usuarioLogado.nome.split(" ")[0]}! 👋</div><div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:2}}>{org.name}</div></div></div>
-            <button onClick={()=>{setUsuarioLogado(null);setAtribuicoes([]);setScreen("user_login");}} style={{background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:R.sm,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:600}}>Sair</button>
-          </div>
-          {total>0&&(<>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:12,color:"rgba(255,255,255,0.8)"}}>Progresso do ciclo</span>
-              <span style={{fontSize:12,fontWeight:700,color:"#fff"}}>{concluidas}/{total} · {pct}%</span>
-            </div>
-            <div style={{background:"rgba(255,255,255,0.2)",borderRadius:R.full,height:6}}><div style={{width:`${pct}%`,height:6,borderRadius:R.full,background:"#fff",transition:"width 0.6s ease"}}/></div>
-          </>)}
+    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",background:"#f8f9fa",display:"flex",flexDirection:"column"}}>
+      {/* Header slim */}
+      <div style={{background:org.primaryColor||"#2563eb",padding:"0 24px",display:"flex",alignItems:"center",justifyContent:"space-between",height:52,borderBottom:"1px solid rgba(0,0,0,0.08)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <OrgLogo org={org} size={28}/>
+          <span style={{fontWeight:600,fontSize:14,color:"#fff",opacity:0.95}}>{org.name}</span>
         </div>
+        <button onClick={()=>{setUsuarioLogado(null);setAtribuicoes([]);setScreen("user_login");}}
+          style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)",color:"#fff",borderRadius:R.sm,padding:"5px 14px",cursor:"pointer",fontSize:12,fontWeight:500}}>
+          Sair
+        </button>
       </div>
-      <div style={{maxWidth:600,margin:"0 auto",padding:"20px 16px 40px",width:"100%",flex:1}}>
-        {usuarioLogado&&usuarioLogado.senha_hash===simpleHash("avalie360")&&!showTrocaSenha&&(
-          <div style={{background:"#fefce8",borderRadius:R.md,padding:"12px 16px",border:"1px solid #fde068",marginBottom:16,fontSize:13,color:"#92400e",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            <span>🔑 Você está usando a senha padrão.</span>
-            <button onClick={()=>setShowTrocaSenha(true)} style={{padding:"5px 14px",borderRadius:R.sm,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,marginLeft:"auto"}}>Alterar agora</button>
-            <button onClick={()=>setShowTrocaSenha(false)} style={{padding:"5px 10px",borderRadius:R.sm,border:"1px solid #fde068",background:"transparent",color:"#92400e",cursor:"pointer",fontSize:11}}>Depois</button>
+      <div style={{maxWidth:560,margin:"0 auto",padding:"28px 16px 40px",width:"100%",flex:1}}>
+        {/* Greeting */}
+        <div style={{marginBottom:24}}>
+          <h2 style={{fontSize:20,fontWeight:700,color:"#111827",margin:"0 0 4px"}}>Olá, {usuarioLogado.nome.split(" ")[0]} 👋</h2>
+          <p style={{fontSize:13,color:"#6b7280",margin:0}}>Ciclo: {org.activeCiclo||CICLOS[0]}</p>
+        </div>
+        {/* Progress bar */}
+        {total>0&&(
+          <div style={{background:"#fff",borderRadius:R.md,padding:"14px 18px",border:"1px solid #e5e7eb",marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{fontSize:13,color:"#374151",fontWeight:500}}>Progresso do ciclo</span>
+              <span style={{fontSize:13,fontWeight:600,color:org.primaryColor||"#2563eb"}}>{concluidas} de {total}</span>
+            </div>
+            <div style={{background:"#f3f4f6",borderRadius:R.full,height:6}}>
+              <div style={{width:`${pct}%`,height:6,borderRadius:R.full,background:org.primaryColor||"#2563eb",transition:"width 0.5s ease"}}/>
+            </div>
           </div>
         )}
+        {/* Password warning */}
+        {usuarioLogado.senha_hash===simpleHash("avalie360")&&!showTrocaSenha&&(
+          <div style={{background:"#fffbeb",borderRadius:R.md,padding:"12px 16px",border:"1px solid #fde68a",marginBottom:16,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <span style={{fontSize:13,color:"#92400e",flex:1}}>🔑 Você está usando a senha padrão. Recomendamos alterar.</span>
+            <button onClick={()=>setShowTrocaSenha(true)} style={{padding:"5px 12px",borderRadius:R.sm,border:"none",background:"#d97706",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>Alterar</button>
+          </div>
+        )}
+        {/* Change password form */}
         {showTrocaSenha&&(
-          <div style={{background:"#fff",borderRadius:R.xl,padding:20,border:"1px solid #dbeafe",marginBottom:20,boxShadow:SH.sm}}>
-            <h3 style={{color:"#1e3a8a",fontSize:15,marginBottom:16,fontWeight:700}}>🔑 Alterar senha</h3>
+          <div style={{background:"#fff",borderRadius:R.lg,padding:20,border:"1px solid #e5e7eb",marginBottom:20}}>
+            <h3 style={{fontSize:14,fontWeight:600,color:"#111827",marginBottom:14}}>Alterar senha</h3>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <input type="password" placeholder="Nova senha (mín. 6 caracteres)" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-              <input type="password" placeholder="Confirmar nova senha" value={confirmaSenha} onChange={e=>setConfirmaSenha(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:R.md,border:"1.5px solid #dbeafe",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              <input type="password" placeholder="Nova senha (mín. 6 caracteres)" value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}
+                style={{width:"100%",padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #d1d5db",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              <input type="password" placeholder="Confirmar nova senha" value={confirmaSenha} onChange={e=>setConfirmaSenha(e.target.value)}
+                style={{width:"100%",padding:"10px 14px",borderRadius:R.md,border:"1.5px solid #d1d5db",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
               {trocaSenhaMsg&&<p style={{fontSize:12,color:trocaSenhaMsg.includes("sucesso")?"#16a34a":"#ef4444",margin:0}}>{trocaSenhaMsg}</p>}
               <div style={{display:"flex",gap:8}}>
-                <button onClick={async()=>{if(novaSenha.length<6){setTrocaSenhaMsg("Mín. 6 caracteres.");return;}if(novaSenha!==confirmaSenha){setTrocaSenhaMsg("Senhas não coincidem.");return;}const ok=await updateUsuarioSenha(usuarioLogado.id,novaSenha);if(ok){setUsuarioLogado(p=>({...p,senha_hash:simpleHash(novaSenha)}));setTrocaSenhaMsg("✓ Senha alterada com sucesso!");setNovaSenha("");setConfirmaSenha("");setTimeout(()=>{setShowTrocaSenha(false);setTrocaSenhaMsg("");},2000);}else setTrocaSenhaMsg("Erro ao alterar senha.");}} style={{padding:"10px 20px",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13,flex:2}}>Salvar</button>
-                <button onClick={()=>{setShowTrocaSenha(false);setNovaSenha("");setConfirmaSenha("");setTrocaSenhaMsg("");}} style={{padding:"10px 16px",borderRadius:R.md,border:"1.5px solid #dbeafe",background:"#fff",color:"#64748b",cursor:"pointer",fontSize:13,flex:1}}>Cancelar</button>
+                <button onClick={async()=>{
+                  if(novaSenha.length<6){setTrocaSenhaMsg("Mínimo 6 caracteres.");return;}
+                  if(novaSenha!==confirmaSenha){setTrocaSenhaMsg("Senhas não coincidem.");return;}
+                  const ok=await updateUsuarioSenha(usuarioLogado.id,novaSenha);
+                  if(ok){setUsuarioLogado(p=>({...p,senha_hash:simpleHash(novaSenha)}));setTrocaSenhaMsg("✓ Senha alterada!");setNovaSenha("");setConfirmaSenha("");setTimeout(()=>{setShowTrocaSenha(false);setTrocaSenhaMsg("");},2000);}
+                  else setTrocaSenhaMsg("Erro ao alterar.");
+                }} style={{padding:"9px 16px",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:13,flex:2}}>Salvar</button>
+                <button onClick={()=>{setShowTrocaSenha(false);setNovaSenha("");setConfirmaSenha("");setTrocaSenhaMsg("");}}
+                  style={{padding:"9px 16px",borderRadius:R.md,border:"1.5px solid #d1d5db",background:"#fff",color:"#374151",cursor:"pointer",fontSize:13,flex:1}}>Cancelar</button>
               </div>
             </div>
           </div>
         )}
-        <div style={{marginBottom:16}}>
-          <h2 style={{color:"#1e3a8a",fontSize:16,margin:0,fontWeight:800}}>Suas avaliações</h2>
-          <p style={{fontSize:12,color:"#64748b",marginTop:3}}>Ciclo: <strong>{org.activeCiclo||CICLOS[0]}</strong></p>
-        </div>
+        {/* Evaluations list */}
+        <h3 style={{fontSize:14,fontWeight:600,color:"#374151",marginBottom:12}}>Suas avaliações</h3>
         {atribuicoes.length===0?(
-          <div style={{background:"#fff",borderRadius:R.xl,padding:48,boxShadow:SH.sm,textAlign:"center"}}>
-            <div style={{fontSize:40,marginBottom:12}}>📋</div>
-            <p style={{color:"#475569",fontSize:14,fontWeight:600}}>Nenhuma avaliação atribuída</p>
-            <p style={{color:"#94a3b8",fontSize:12,marginTop:6}}>Aguarde o administrador configurar.</p>
+          <div style={{background:"#fff",borderRadius:R.lg,padding:"36px 24px",border:"1px solid #e5e7eb",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:10}}>📋</div>
+            <p style={{color:"#374151",fontSize:14,fontWeight:500,margin:"0 0 4px"}}>Nenhuma avaliação atribuída</p>
+            <p style={{color:"#9ca3af",fontSize:12,margin:0}}>Aguarde o administrador configurar.</p>
           </div>
         ):(
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {atribuicoes.map(at=>{
               const formDef=forms.find(f=>f.id===at.form_id);
               if(!formDef) return null;
               return(
-                <div key={at.id} style={{background:"#fff",borderRadius:R.lg,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,
-                  opacity:at.concluida?0.7:1,
-                  boxShadow:at.concluida?"none":SH.sm,
-                  border:`1.5px solid ${at.concluida?"#86efac":"#e2e8f0"}`,
-                  borderLeft:`4px solid ${at.concluida?"#22c55e":org.primaryColor||"#2563eb"}`}}>
-                  <span style={{fontSize:24,flexShrink:0}}>{formDef.icon}</span>
-                  <div style={{flex:1}}>
-                    {at.avaliado_nome?(
-                      <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>Avalie {at.avaliado_nome}{at.avaliado_funcao?` · ${at.avaliado_funcao}`:""}</div>
-                    ):(
-                      <div style={{fontWeight:700,color:"#1e3a8a",fontSize:14}}>{formDef.title}</div>
-                    )}
-                    {at.concluida?<div style={{fontSize:12,color:"#22c55e",marginTop:3,fontWeight:600}}>✓ Concluída</div>:<div style={{fontSize:12,color:"#94a3b8",marginTop:3}}>{formDef.title}</div>}
+                <div key={at.id} style={{background:"#fff",borderRadius:R.md,padding:"14px 18px",display:"flex",alignItems:"center",gap:12,
+                  border:`1px solid ${at.concluida?"#d1fae5":"#e5e7eb"}`,
+                  opacity:at.concluida?0.65:1}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{formDef.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,color:"#111827",fontSize:13,lineHeight:1.4}}>
+                      {at.avaliado_nome?`Avalie ${at.avaliado_nome}`:formDef.title}
+                    </div>
+                    {at.avaliado_nome&&<div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>{formDef.title}{at.avaliado_funcao?` · ${at.avaliado_funcao}`:""}</div>}
+                    {at.concluida&&<div style={{fontSize:11,color:"#16a34a",marginTop:2,fontWeight:500}}>✓ Concluída</div>}
                   </div>
                   {!at.concluida&&(
                     <button onClick={async()=>{
@@ -2305,8 +2307,8 @@ export default function App(){
                       if(prog){setFbi(prog.bloco_atual||0);setAnswers(prog.answers||{});setOpenAns(prog.open_answers||{});}
                       else{setFbi(0);setAnswers({});setOpenAns({});}
                       setScreen(prog?"form":"lgpd");
-                    }} style={{padding:"9px 18px",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>
-                      Responder →
+                    }} style={{padding:"8px 16px",borderRadius:R.md,border:"none",background:org.primaryColor||"#2563eb",color:"#fff",cursor:"pointer",fontWeight:600,fontSize:12,flexShrink:0,whiteSpace:"nowrap"}}>
+                      Responder
                     </button>
                   )}
                 </div>
@@ -2314,15 +2316,15 @@ export default function App(){
             })}
           </div>
         )}
-        <div style={{marginTop:24,padding:"12px 16px",background:"#f0fdf4",borderRadius:R.md,border:"1px solid #86efac",fontSize:11,color:"#166534"}}>
-          🔒 Suas respostas são anônimas. Os administradores veem apenas resultados agregados. LGPD conforme.
+        <div style={{marginTop:20,padding:"10px 14px",background:"#f0fdf4",borderRadius:R.sm,border:"1px solid #bbf7d0",fontSize:11,color:"#166534"}}>
+          🔒 Suas respostas são anônimas. Administradores veem apenas resultados agregados. LGPD conforme.
         </div>
       </div>
       <PoweredBy/>
     </div>
   );}
 
-    // ── USUARIOS MANAGEMENT ──
+  // ── USUARIOS MANAGEMENT ──
   if(screen==="usuarios"&&org){
     const pc2=org.primaryColor||"#2563eb";
     return(
