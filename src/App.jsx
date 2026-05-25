@@ -7,7 +7,7 @@ const STORAGE_RESPOSTAS = "cg360_respostas";
 const STORAGE_FORMS = "cg360_forms";
 
 const DEFAULT_SCALE_LABELS = {
-  1:"Raramente", 2:"Às vezes", 3:"Frequentemente", 4:"Sempre", 0:"Não sei avaliar"
+  1:"Raramente", 2:"Às vezes", 3:"Frequentemente", 4:"Quase sempre", 5:"Sempre", 0:"Não sei avaliar"
 };
 const SC = {0:"#94a3b8",1:"#ef4444",2:"#f97316",3:"#eab308",4:"#22c55e",5:"#10b981"};
 
@@ -19,7 +19,7 @@ const SCALE_MODELS = {
     icon: "🔁",
     description: "Com que frequência esse comportamento é observado?",
     tip: "Recomendado para a maioria das organizações. Universal, humano e fácil de responder.",
-    labels: {1:"Raramente", 2:"Às vezes", 3:"Frequentemente", 4:"Sempre", 0:"Não sei avaliar"},
+    labels: {1:"Raramente", 2:"Às vezes", 3:"Frequentemente", 4:"Quase sempre", 5:"Sempre", 0:"Não sei avaliar"},
   },
   concordancia: {
     id: "concordancia",
@@ -27,7 +27,7 @@ const SCALE_MODELS = {
     icon: "✅",
     description: "Você concorda com esta afirmação sobre a pessoa?",
     tip: "Mais corporativo. Funciona bem com perguntas no formato de afirmações.",
-    labels: {1:"Discordo", 2:"Neutro", 3:"Concordo", 4:"Concordo totalmente", 0:"Sem elementos para avaliar"},
+    labels: {1:"Discordo totalmente", 2:"Discordo", 3:"Neutro", 4:"Concordo", 5:"Concordo totalmente", 0:"Sem elementos para avaliar"},
   },
   maturidade: {
     id: "maturidade",
@@ -35,7 +35,7 @@ const SCALE_MODELS = {
     icon: "📈",
     description: "Qual o nível de desenvolvimento nessa área?",
     tip: "Focado em crescimento. Ideal quando o objetivo é criar planos de desenvolvimento.",
-    labels: {1:"Precisa melhorar", 2:"Adequado", 3:"Muito bom", 4:"Excelente", 0:"Não consigo avaliar"},
+    labels: {1:"Precisa melhorar", 2:"Em desenvolvimento", 3:"Adequado", 4:"Muito bom", 5:"Excelente", 0:"Não consigo avaliar"},
   },
 };
 function getScaleLabels(modelId){ return SCALE_MODELS[modelId]?.labels || SCALE_MODELS.frequencia.labels; }
@@ -257,6 +257,128 @@ const DEFAULT_FORMS = [
         abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
     ]},
 ];
+
+// ─── TEMPLATE NEUTRO (Organizacional) ────────────────────────────────
+// Mesmas perguntas do DEFAULT_FORMS com linguagem não-missionária
+// Para uso futuro quando a seleção de template for implementada no onboarding
+const DEFAULT_FORMS_NEUTRO = [
+  { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
+    blocos:[
+      { id:"proposito", title:"Propósito e coerência", icon:"🧭",
+        perguntas:[
+          "Tenho sido fiel aos meus compromissos e responsabilidades.",
+          "Tenho sido coerente com minhas palavras e ações.",
+          "Tenho reagido a críticas e correções com humildade.",
+          "Tenho buscado agir de acordo com os valores da organização.",
+          "Minha atuação profissional tem refletido os objetivos definidos no meu planejamento.",
+          "Tenho conseguido me manter humilde diante dos sucessos pessoais e profissionais.",
+        ],
+        abertas:["Em quais áreas você percebe maior crescimento no último período?","Em quais áreas sente maior fragilidade atualmente?"]},
+      { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
+        perguntas:[
+          "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
+          "Tenho conseguido descansar adequadamente.",
+          "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
+          "Tenho conseguido pedir ajuda quando necessário.",
+          "Tenho chegado às minhas atividades com disposição e motivação.",
+          "Tenho percebido sinais de desgaste emocional em mim.",
+          "Tenho conseguido estabelecer limites saudáveis.",
+        ],
+        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?","Existe alguma área em que você sente necessidade de maior cuidado ou apoio?"]},
+      { id:"relacionamentos", title:"Relacionamentos e equipe", icon:"🤝",
+        perguntas:[
+          "Tenho contribuído para que meus ambientes sejam saudáveis.",
+          "Tenho escutado opiniões diferentes sem defensividade.",
+          "Tenho lidado bem com conflitos.",
+          "Tenho sido acessível e respeitoso nas relações.",
+          "Tenho colaborado bem com minha equipe.",
+        ],
+        abertas:["O que você acredita que mais fortalece suas relações?","Onde você acredita que precisa amadurecer relacionalmente?"]},
+      { id:"comunicacao", title:"Comunicação", icon:"💬",
+        perguntas:[
+          "Tenho me comunicado com clareza.",
+          "Tenho dado feedbacks respeitosos e honestos.",
+          "Tenho escutado atentamente as pessoas.",
+          "Tenho comunicado expectativas de maneira saudável.",
+        ],
+        abertas:["Em quais situações sua comunicação funciona melhor?","O que você deseja desenvolver na sua comunicação?"]},
+      { id:"alinhamento", title:"Alinhamento e cultura", icon:"⛵",
+        perguntas:[
+          "Tenho representado bem os valores da organização.",
+          "Tenho contribuído para a unidade da organização.",
+          "Tenho fortalecido a cultura de cuidado e cooperação.",
+          "Tenho mantido alinhamento com a liderança e suas diretrizes.",
+          "Tenho colaborado para o desenvolvimento da organização.",
+        ],
+        abertas:["O que mais conecta você ao propósito da organização?","O que hoje dificulta seu alinhamento ou engajamento?"]},
+      { id:"impacto", title:"Impacto e resultados", icon:"🌱",
+        perguntas:[
+          "Tenho produzido impacto positivo nas pessoas ao meu redor.",
+          "Tenho contribuído para o desenvolvimento de outras pessoas.",
+          "Tenho alcançado as metas estabelecidas no meu planejamento.",
+          "Tenho desenvolvido novas habilidades.",
+        ],
+        abertas:["Onde você percebe maior resultado atualmente?","Onde gostaria de crescer no próximo ciclo?"]},
+      { id:"saude_integral_auto", title:"Saúde integral", icon:"💚",
+        perguntas:[
+          "Minhas relações familiares estão saudáveis.",
+          "Tenho descansado adequadamente.",
+          "Tenho lidado bem com minhas frustrações.",
+        ],
+        abertas:[]},
+    ]},
+  { id:"pares", title:"Avaliação de Pares", icon:"👥", subtitle:"Compartilhe com cuidado e honestidade",
+    blocos:[
+      { id:"convivencia", title:"Relacionamentos e convivência", icon:"🤝",
+        perguntas:["Essa pessoa contribui para um ambiente saudável.","Trata as pessoas com respeito.","Trabalha bem em equipe.","Demonstra humildade nos relacionamentos.","Resolve conflitos com maturidade.","Escuta opiniões diferentes.","Demonstra disposição para cooperar."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"comunicacao_par", title:"Comunicação", icon:"💬",
+        perguntas:["Comunica-se de forma clara.","Compartilha informações importantes adequadamente.","Escuta com atenção.","Demonstra abertura ao diálogo.","Quando precisa corrigir ou orientar, faz isso de forma respeitosa e construtiva."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"maturidade", title:"Maturidade emocional", icon:"💙",
+        perguntas:["Demonstra equilíbrio emocional diante das pressões.","Reage de forma madura a frustrações.","Assume erros quando necessário.","Ouve críticas sem defensividade excessiva."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"cultura_par", title:"Cultura e propósito", icon:"⛵",
+        perguntas:["Representa bem os valores da organização.","Fortalece a unidade.","Demonstra compromisso com a organização.","Atua de forma coerente com a cultura onde está inserida."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"saude_integral_par", title:"Saúde integral", icon:"💚",
+        perguntas:["Demonstra abertura e vulnerabilidade saudável.","Demonstra sinais saudáveis nas relações familiares.","Demonstra sinais de descanso adequado.","Demonstra maturidade para lidar com frustrações."],
+        abertas:[]},
+      { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
+        perguntas:["Percebo sinais de sobrecarga.","Percebo sinais de isolamento.","Percebo sinais de desgaste emocional.","Percebo perda de motivação.","Percebo tensões relacionais recorrentes.","Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+    ]},
+  { id:"lideranca_direta", title:"Avaliação pela Liderança", icon:"🧭", subtitle:"Avaliação de quem acompanha de perto",
+    blocos:[
+      { id:"responsabilidade", title:"Responsabilidade e confiabilidade", icon:"🛡️",
+        perguntas:["Demonstra responsabilidade.","Cumpre compromissos e acordos.","Demonstra maturidade nas decisões.","Demonstra confiabilidade.","Demonstra coerência entre discurso e prática."], abertas:[]},
+      { id:"aprendizado", title:"Desenvolvimento e aprendizado", icon:"🌱",
+        perguntas:["Demonstra disposição para aprender.","Recebe orientações e críticas com maturidade.","Busca desenvolvimento pessoal.","Demonstra adaptabilidade."], abertas:[]},
+      { id:"sustentabilidade", title:"Saúde e sustentabilidade", icon:"💙",
+        perguntas:["Administra adequadamente as pressões.","Mantém limites saudáveis.","Demonstra equilíbrio em sua vida pessoal e material.","Demonstra boa disposição física.","Sabe pedir ajuda quando necessário."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"maturidade_lid", title:"Maturidade emocional", icon:"💜",
+        perguntas:["Demonstra equilíbrio emocional diante das pressões.","Reage de forma madura a frustrações.","Demonstra segurança sem arrogância.","Assume erros quando necessário.","Recebe correções sem defensividade excessiva."], abertas:[]},
+      { id:"riscos_lid", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
+        perguntas:["Percebo sinais de sobrecarga.","Percebo sinais de isolamento.","Percebo sinais de desgaste emocional.","Percebo perda de motivação.","Percebo tensões relacionais recorrentes.","Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+    ]},
+  { id:"liderados", title:"Avaliação pelos Liderados", icon:"🌿", subtitle:"Sua perspectiva importa e será tratada com cuidado",
+    blocos:[
+      { id:"estilo", title:"Estilo de liderança", icon:"🧭",
+        perguntas:["Desenvolve ambiente seguro para diálogo.","Demonstra disposição e engajamento.","Escuta as pessoas com atenção.","Trata as pessoas com respeito.","Dá direcionamentos claros quando necessário.","Demonstra equilíbrio nas decisões.","Assume responsabilidade pelos erros.","Demonstra coerência entre discurso e prática."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"saude_relacional", title:"Saúde relacional", icon:"💙",
+        perguntas:["Gera e transmite confiança ao seu redor.","Promove unidade.","Lida bem com conflitos.","Evita manipulação ou controle excessivo.","Demonstra abertura para ouvir críticas.","Demonstra cuidado genuíno pelas pessoas."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+      { id:"maturidade_lid2", title:"Maturidade emocional", icon:"💜",
+        perguntas:["Demonstra equilíbrio emocional diante das pressões.","Reage de forma madura a frustrações.","Demonstra segurança sem arrogância.","Assume erros quando necessário."], abertas:[]},
+      { id:"riscos_lid2", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
+        perguntas:["Percebo sinais de sobrecarga.","Percebo sinais de isolamento.","Percebo sinais de desgaste emocional.","Percebo perda de motivação.","Percebo tensões relacionais recorrentes.","Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento."],
+        abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
+    ]},
+];
+
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────────────
 const SB_URL = "https://tegktsjlpjvsbdrrugpp.supabase.co";
@@ -695,8 +817,7 @@ async function saveCustomLinks2(orgId, links) {
 // ─── UTILS ───────────────────────────────────────────────────────────
 function bAvg(b,r){const v=b.perguntas.map((_,i)=>r[`${b.id}_${i}`]||0).filter(x=>x>0);return v.length?v.reduce((a,x)=>a+x,0)/v.length:0;}
 function sColor(s){
-  // Max score is 4. Thresholds adjusted for 4-point scale.
-  return s>=3.5?"#10b981":s>=2.5?"#3b82f6":s>=1.5?"#f59e0b":"#ef4444";
+  return s>=4?"#10b981":s>=3?"#3b82f6":s>=2?"#f59e0b":"#ef4444";
 }
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function slugify(s){return s.toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");}
@@ -799,7 +920,7 @@ function ScBar({label,score}){
     <div style={{marginBottom:12}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
         <span style={{fontSize:13,color:"#475569",fontWeight:500}}>{label}</span>
-        <span style={{fontSize:13,fontWeight:700,color:score>0?sColor(score):"#94a3b8"}}>{score>0?score.toFixed(1)+"/4":"—"}</span>
+        <span style={{fontSize:13,fontWeight:700,color:score>0?sColor(score):"#94a3b8"}}>{score>0?score.toFixed(1)+"/5":"—"}</span>
       </div>
       <div style={{background:"#e2e8f0",borderRadius:99,height:8}}><div style={{width:`${(score/5)*100}%`,background:sColor(score),height:8,borderRadius:99,transition:"width 0.6s ease"}}/></div>
     </div>
@@ -897,14 +1018,14 @@ function KpiCard({icon,val,label,color}){
 // PDF Print function
 function printIndividualPDF({org,avaliado,ciclo,formTitle,bStats,mgeral,abList,respsCount}){
   function sc(s){return s>=4?"#10b981":s>=3?"#3b82f6":s>=2?"#f59e0b":"#ef4444";}
-  const bars=bStats.map(b=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/4":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`).join("");
+  const bars=bStats.map(b=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;color:#475569">${b.fullName||b.name}</span><span style="font-size:13px;font-weight:700;color:${sc(b.media)}">${b.media>0?b.media.toFixed(1)+"/5":"—"}</span></div><div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="width:${(b.media/5)*100}%;background:${sc(b.media)};height:10px;border-radius:99px"></div></div></div>`).join("");
   const comments=abList.length>0?`<p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin:28px 0 12px">Reflexões abertas (${abList.length})</p>${abList.map(t=>`<div style="background:#f8faff;border-left:3px solid #3b82f6;padding:10px 14px;margin-bottom:8px;font-size:12px;color:#334155;line-height:1.7;border-radius:0 8px 8px 0">"${t}"</div>`).join("")}`:"";
   const logoHtml=org.logoUrl?`<img src="${org.logoUrl}" style="height:44px;object-fit:contain"/>`:`<div style="width:44px;height:44px;border-radius:10px;background:#1e3a8a;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff">${(org.name||"?").slice(0,2).toUpperCase()}</div>`;
   const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório — ${avaliado}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,sans-serif;color:#1e293b;padding:40px;max-width:800px;margin:0 auto}.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:24px;border-bottom:3px solid #1e3a8a;margin-bottom:28px}.badge{background:#f0fdf4;border:1px solid #86efac;color:#15803d;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 28px}.kpi{background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:14px;text-align:center}.kpi-val{font-size:22px;font-weight:800;color:#1e3a8a}.kpi-lbl{font-size:10px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em}.footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0}.lgpd{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;font-size:11px;color:#15803d;margin-top:32px}@media print{body{padding:20px}}</style></head><body>
   <div class="hdr"><div>${logoHtml}<div style="margin-top:10px"><strong style="font-size:15px;color:#1e3a8a">${org.name||""}</strong><div style="font-size:11px;color:#64748b;margin-top:2px">Avaliação 360°</div></div></div><div style="text-align:right"><span class="badge">LGPD conforme</span><div style="font-size:11px;color:#94a3b8;margin-top:8px">Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></div></div>
   <h1 style="font-size:22px;font-weight:800;color:#1e3a8a;margin-bottom:4px">${avaliado}</h1>
   <div style="font-size:13px;color:#64748b">${formTitle} · ${ciclo}</div>
-  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/4</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${bStats.length}</div><div class="kpi-lbl">Dimensões</div></div></div>
+  <div class="kpis"><div class="kpi"><div class="kpi-val">${mgeral}/5</div><div class="kpi-lbl">Média geral</div></div><div class="kpi"><div class="kpi-val">${respsCount}</div><div class="kpi-lbl">Respondentes</div></div><div class="kpi"><div class="kpi-val">${bStats.length}</div><div class="kpi-lbl">Dimensões</div></div></div>
   <p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:16px">Pontuação por dimensão</p>${bars}${comments}
   <div class="lgpd">🔒 Este relatório não contém dados pessoais identificáveis. Respostas exibidas de forma agregada conforme a LGPD (Lei nº 13.709/2018).</div>
   <div class="footer">Powered by Conectando Gente — Avaliação 360°</div>
@@ -1087,7 +1208,7 @@ export default function App(){
   const bStats=dForm&&dData.length>0?dForm.blocos.map(b=>{const sc=dData.map(r=>bAvg(b,r.answers)).filter(v=>v>0);return{name:b.title.slice(0,16),fullName:b.title,media:sc.length?parseFloat((sc.reduce((a,x)=>a+x,0)/sc.length).toFixed(2)):0};}):[];
   const mgeral=bStats.length?(bStats.reduce((a,b)=>a+b.media,0)/bStats.length).toFixed(1):"—";
   const abList=[];dData.forEach(r=>Object.values(r.openAns||{}).forEach(v=>{if(v?.trim())abList.push(v.trim());}));
-  const dist=[1,2,3,4].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,14),count:c};});
+  const dist=[1,2,3,4,5].map(v=>{let c=0;dData.forEach(r=>Object.values(r.answers||{}).forEach(x=>{if(x===v)c++;}));return{name:(scaleLabels[v]||DEFAULT_SCALE_LABELS[v]).slice(0,12),count:c};});
   // Comparativo entre ciclos
   const COMP_COLORS=["#2563eb","#10b981","#f59e0b","#8b5cf6","#ef4444","#06b6d4"];
   const ciclosComDados=dForm&&dAvaliado?CICLOS.filter(c=>resps.some(r=>r.ciclo===c&&r.formId===dForm.id&&r.avaliadoId===dAvaliado)):[];
@@ -1160,7 +1281,7 @@ export default function App(){
     if(!dData.length)return;
     const rowsH=bStats.map(b=>`<tr><td style="padding:10px;border-bottom:1px solid #e2e8f0">${b.fullName}</td><td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:${sColor(b.media)}">${b.media.toFixed(1)}/5</td><td style="padding:10px;border-bottom:1px solid #e2e8f0"><div style="background:#e2e8f0;border-radius:4px;height:10px;width:180px"><div style="width:${(b.media/5)*100}%;background:${sColor(b.media)};height:10px;border-radius:4px"></div></div></td></tr>`).join("");
     const absH=abList.map(t=>`<li style="margin-bottom:8px;color:#334155;line-height:1.6">${t}</li>`).join("");
-    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/4</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
+    const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório 360°</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1e293b}h1{color:#1e3a8a}table{width:100%;border-collapse:collapse}.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}</style></head><body><h1>📊 Relatório de Avaliação 360°</h1><p><strong>${org?.name}</strong> · ${dci} · ${dForm?.title}</p><p style="background:#f0fdf4;border-radius:8px;padding:10px 16px;font-size:12px;color:#166534">🔒 Em conformidade com a LGPD · ${dData.length} respondentes</p><h2 style="margin-top:32px">Pontuação por área</h2><table><tbody>${rowsH}</tbody></table><p style="margin-top:16px;font-size:14px">Média geral: <strong style="font-size:22px;color:#1e3a8a">${mgeral}/5</strong></p>${abList.length>0?`<h2 style="margin-top:32px">Reflexões abertas</h2><ul style="padding-left:20px">${absH}</ul>`:""}<div class="footer">Powered by Conectando Gente · Gerado em ${new Date().toLocaleDateString("pt-BR")}</div></body></html>`;
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html;charset=utf-8;"}));
     a.download=`relatorio-${org?.name||"org"}-${dci.replace(/ /g,"-")}.html`;a.click();
   }
@@ -1314,7 +1435,7 @@ export default function App(){
           <div style={{...card,marginBottom:16}}>
             <h3 style={{color:"#1e3a8a",marginBottom:16,fontSize:15}}>Pontuação por área</h3>
             {(d.bStats||[]).map((b,i)=><ScBar key={i} label={b.fullName||b.name} score={b.media}/>)}
-            <p style={{fontSize:14,color:"#64748b",marginTop:16}}>Média geral: <strong style={{fontSize:22,color:"#1e3a8a"}}>{d.mgeral}/4</strong></p>
+            <p style={{fontSize:14,color:"#64748b",marginTop:16}}>Média geral: <strong style={{fontSize:22,color:"#1e3a8a"}}>{d.mgeral}/5</strong></p>
           </div>
           {d.abList?.length>0&&<div style={{...card}}><h3 style={{color:"#1e3a8a",marginBottom:12,fontSize:15}}>💬 Reflexões ({d.abList.length})</h3>{d.abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:10,padding:"10px 14px",borderLeft:"3px solid #3b82f6",fontSize:13,color:"#334155",marginBottom:8,lineHeight:1.6}}>"{t}"</div>)}</div>}
         </div>
@@ -1544,7 +1665,7 @@ export default function App(){
         {dashTab==="resultados"&&(dData.length===0?(
           <div style={{background:"#fff",borderRadius:R.xl,padding:56,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",textAlign:"center"}}><div style={{fontSize:48,marginBottom:14}}>📭</div><p style={{color:"#475569",fontSize:15,fontWeight:600}}>Nenhuma resposta ainda</p><p style={{color:"#94a3b8",fontSize:13,marginTop:8}}>Compartilhe os links para coletar respostas.</p></div>
         ):(<>
-          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,4]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/4`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
+          <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📊 Média por área</h3><ResponsiveContainer width="100%" height={240}><BarChart data={bStats} margin={{top:5,right:10,left:-20,bottom:55}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={v=>[`${v}/5`,"Média"]} labelFormatter={(_,p)=>p[0]?.payload?.fullName||""}/><Bar dataKey="media" fill={pc} radius={[8,8,0,0]}/></BarChart></ResponsiveContainer></div>
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>📈 Distribuição das respostas</h3><ResponsiveContainer width="100%" height={190}><BarChart data={dist} margin={{top:5,right:10,left:-20,bottom:5}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip formatter={v=>[v,"Respostas"]}/><Bar dataKey="count" fill="#10b981" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
           <div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)",marginBottom:20}}><h3 style={{color:"#1e3a8a",marginBottom:20,fontSize:15,fontWeight:700}}>🎯 Detalhamento por área</h3>{bStats.map((b,i)=><ScBar key={i} label={b.fullName} score={b.media}/>)}</div>
           {abList.length>0&&<div style={{background:"#fff",borderRadius:R.xl,padding:24,boxShadow:SH.md,border:"1px solid rgba(37,99,235,0.06)"}}><h3 style={{color:"#1e3a8a",marginBottom:6,fontSize:15,fontWeight:700}}>💬 Reflexões abertas</h3><p style={{fontSize:11,color:"#94a3b8",marginBottom:16}}>{abList.length} respostas · anônimas · LGPD conforme</p><div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>{abList.map((t,i)=><div key={i} style={{background:"#f8faff",borderRadius:R.md,padding:"12px 16px",borderLeft:`3px solid ${pc}`,fontSize:13,color:"#334155",lineHeight:1.7}}>"{t}"</div>)}</div></div>}
@@ -1585,7 +1706,7 @@ export default function App(){
             <div style={{marginBottom:14,display:"flex",gap:8,flexWrap:"wrap"}}>
               {ciclosComDados.map((c,i)=><span key={c} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:R.full,background:`${COMP_COLORS[i%COMP_COLORS.length]}15`,border:`1px solid ${COMP_COLORS[i%COMP_COLORS.length]}40`,fontSize:12,color:COMP_COLORS[i%COMP_COLORS.length],fontWeight:700}}><span style={{width:8,height:8,borderRadius:"50%",background:COMP_COLORS[i%COMP_COLORS.length],display:"inline-block"}}/>{c}</span>)}
             </div>
-            <ResponsiveContainer width="100%" height={280}><LineChart data={comparativoData} margin={{top:5,right:20,left:-20,bottom:60}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,4]} tick={{fontSize:11}}/><Tooltip formatter={(v,n)=>[`${v}/4`,n]}/><Legend wrapperStyle={{fontSize:11,paddingTop:8}}/>{ciclosComDados.map((c,i)=><Line key={c} type="monotone" dataKey={c.replace(" - ","·").replace(" Semestre","")} stroke={COMP_COLORS[i%COMP_COLORS.length]} strokeWidth={2.5} dot={{r:4}} activeDot={{r:6}}/>)}</LineChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height={280}><LineChart data={comparativoData} margin={{top:5,right:20,left:-20,bottom:60}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/><XAxis dataKey="name" tick={{fontSize:10,fill:"#64748b"}} angle={-30} textAnchor="end" interval={0}/><YAxis domain={[0,5]} tick={{fontSize:11}}/><Tooltip formatter={(v,n)=>[`${v}/5`,n]}/><Legend wrapperStyle={{fontSize:11,paddingTop:8}}/>{ciclosComDados.map((c,i)=><Line key={c} type="monotone" dataKey={c.replace(" - ","·").replace(" Semestre","")} stroke={COMP_COLORS[i%COMP_COLORS.length]} strokeWidth={2.5} dot={{r:4}} activeDot={{r:6}}/>)}</LineChart></ResponsiveContainer>
             <div style={{marginTop:20}}><p style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10}}>Tabela comparativa</p><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{background:"#f8faff"}}><th style={{padding:"8px 12px",textAlign:"left",color:"#64748b",fontWeight:700,borderBottom:"2px solid #dbeafe"}}>Dimensão</th>{ciclosComDados.map((c,i)=><th key={c} style={{padding:"8px 12px",textAlign:"center",color:COMP_COLORS[i%COMP_COLORS.length],fontWeight:700,borderBottom:"2px solid #dbeafe",whiteSpace:"nowrap"}}>{c.replace(" - ","·").replace(" Semestre","")}</th>)}</tr></thead><tbody>{comparativoData.map((row,i)=><tr key={i} style={{borderBottom:"1px solid #f1f5f9",background:i%2===0?"#fff":"#f8faff"}}><td style={{padding:"8px 12px",color:"#334155",fontWeight:500}}>{row.fullName}</td>{ciclosComDados.map((c,j)=>{const k=c.replace(" - ","·").replace(" Semestre","");const val=row[k];return<td key={c} style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:val>0?sColor(val):"#94a3b8"}}>{val>0?val.toFixed(1):"—"}</td>;})}</tr>)}</tbody></table></div></div>
           </>)}
         </div>)}
@@ -1648,12 +1769,12 @@ export default function App(){
                   </div>
                   {/* Preview das respostas */}
                   <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-                    {[1,2,3,4].map(v=>(
+                    {[1,2,3,4,5].map(v=>(
                       <span key={v} style={{padding:"3px 10px",borderRadius:R.full,fontSize:11,fontWeight:600,background:active?`${SC[v]}18`:"#f8faff",color:active?SC[v]:"#94a3b8",border:`1px solid ${active?SC[v]+"30":"#e2e8f0"}`}}>
                         {model.labels[v]}
                       </span>
                     ))}
-                    <span style={{padding:"3px 10px",borderRadius:R.full,fontSize:11,fontWeight:600,background:"#f8faff",color:"#94a3b8",border:"1px solid #e2e8f0"}}>
+                    <span style={{padding:"3px 10px",borderRadius:R.full,fontSize:11,fontWeight:600,background:"#f8faff",color:"#94a3b8",border:"1px solid #e2e8f0",fontStyle:"italic"}}>
                       {model.labels[0]}
                     </span>
                   </div>
@@ -1823,21 +1944,21 @@ export default function App(){
                 })}
               </div>
             ) : (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                {[1,2,3,4].map(v=>{
+              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+                {[1,2,3,4,5].map(v=>{
                   const sel=answers[`${fBloc.id}_${i}`]===v;
                   const label=scaleLabels[v]||DEFAULT_SCALE_LABELS[v];
                   return(
                     <button key={v} onClick={()=>setAnswers(r=>({...r,[`${fBloc.id}_${i}`]:v}))}
                       style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                        padding:"10px 6px",borderRadius:R.md,minHeight:64,
+                        padding:"10px 4px",borderRadius:R.md,minHeight:68,
                         border:`2px solid ${sel?SC[v]:"#e2e8f0"}`,
                         background:sel?SC[v]:"#f8fafc",color:sel?"#fff":"#475569",
-                        cursor:"pointer",fontSize:11,fontWeight:600,transition:"all 0.15s",
+                        cursor:"pointer",fontSize:10,fontWeight:600,transition:"all 0.15s",
                         boxShadow:sel?`0 2px 8px ${SC[v]}44`:"none",
-                        width:"100%",boxSizing:"border-box",lineHeight:1.3}}>
-                      <span style={{fontSize:16,fontWeight:800,lineHeight:1.1,marginBottom:2}}>{v}</span>
-                      <span style={{textAlign:"center",lineHeight:1.3,wordBreak:"break-word",maxWidth:"100%"}}>{label}</span>
+                        width:"100%",boxSizing:"border-box",lineHeight:1.2,gap:3}}>
+                      <span style={{fontSize:15,fontWeight:800,lineHeight:1}}>{v}</span>
+                      <span style={{textAlign:"center",lineHeight:1.25,wordBreak:"break-word",maxWidth:"100%"}}>{label}</span>
                     </button>
                   );
                 })}
