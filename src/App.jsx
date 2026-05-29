@@ -414,6 +414,8 @@ async function loadOrgs() {
         activeCiclo: r.active_ciclo,
         scaleLabels: r.scale_labels,
         scaleModel: r.scale_model || "frequencia",
+        yesnoLabels: r.yesno_labels || DEFAULT_YESNO_LABELS,
+        slug: r.slug || "",
         createdAt: r.created_at,
       };
     });
@@ -1076,6 +1078,7 @@ export default function App(){
   const [showPwd,setShowPwd]=useState(false);
   const [forgotMode,setForgotMode]=useState(false);
   const [showAtribuicoes,setShowAtribuicoes]=useState(null); // usuarioId being configured
+  const [editingUsuario,setEditingUsuario]=useState(null); // {id, nome, email, novaSenha}
   const [scaleLabels,setScaleLabels]=useState(DEFAULT_SCALE_LABELS);
   const [scaleModel,setScaleModel]=useState("frequencia");
   const [yesnoLabels,setYesnoLabels]=useState(DEFAULT_YESNO_LABELS);
@@ -2379,6 +2382,8 @@ export default function App(){
                       <div style={{fontSize:11,color:"#94a3b8"}}>{u.email}</div>
                     </div>
                     <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setEditingUsuario({id:u.id,nome:u.nome,email:u.email,novaSenha:""})}
+                        style={{padding:"5px 10px",borderRadius:8,border:`2px solid #6366f1`,background:"#eef2ff",color:"#4f46e5",cursor:"pointer",fontSize:11,fontWeight:600}}>✏️ Editar</button>
                       <button onClick={()=>setShowAtribuicoes(showAtribuicoes===u.id?null:u.id)}
                         style={{padding:"5px 10px",borderRadius:8,border:`2px solid ${pc2}`,background:showAtribuicoes===u.id?"#eff6ff":"#fff",color:pc2,cursor:"pointer",fontSize:11,fontWeight:700}}>
                         📋 Avaliações
@@ -2407,6 +2412,42 @@ export default function App(){
           </div>
         </div>
         <PoweredBy/>
+
+        {/* ── Modal edição de usuário ── */}
+        {editingUsuario&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.55)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:"#fff",borderRadius:16,padding:28,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
+              <h3 style={{margin:"0 0 20px",fontSize:16,color:"#1e3a8a",fontWeight:800}}>✏️ Editar usuário</h3>
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Nome *</label>
+                  <input value={editingUsuario.nome} onChange={e=>setEditingUsuario(p=>({...p,nome:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="Nome completo"/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Email *</label>
+                  <input type="email" value={editingUsuario.email} onChange={e=>setEditingUsuario(p=>({...p,email:e.target.value.toLowerCase()}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="email@org.com"/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Nova senha <span style={{fontWeight:400,color:"#94a3b8",textTransform:"none"}}>(deixe em branco para não alterar)</span></label>
+                  <input type="password" value={editingUsuario.novaSenha} onChange={e=>setEditingUsuario(p=>({...p,novaSenha:e.target.value}))} style={{...inp,width:"100%",boxSizing:"border-box"}} placeholder="••••••••"/>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,marginTop:22}}>
+                <button onClick={()=>setEditingUsuario(null)} style={{flex:1,padding:"10px",borderRadius:10,border:"2px solid #e2e8f0",background:"#fff",color:"#64748b",cursor:"pointer",fontWeight:700,fontSize:13}}>Cancelar</button>
+                <button onClick={async()=>{
+                  if(!editingUsuario.nome.trim()||!editingUsuario.email.trim()){alert("Nome e email são obrigatórios.");return;}
+                  const patch={nome:san(editingUsuario.nome),email:editingUsuario.email.trim()};
+                  if(editingUsuario.novaSenha.length>=4) patch.senha_hash=simpleHash(editingUsuario.novaSenha);
+                  else if(editingUsuario.novaSenha.length>0&&editingUsuario.novaSenha.length<4){alert("Senha deve ter ao menos 4 caracteres.");return;}
+                  await sbFetch(`usuarios?id=eq.${editingUsuario.id}`,{method:"PATCH",prefer:"return=minimal",body:JSON.stringify(patch)});
+                  setUsuarios(p=>p.map(u=>u.id===editingUsuario.id?{...u,...patch}:u));
+                  setEditingUsuario(null);
+                  alert("Usuário atualizado!");
+                }} style={{...btn(pc2),flex:2,padding:"10px"}}>💾 Salvar alterações</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
