@@ -1468,6 +1468,12 @@ export default function App(){
     const ok = await upsertOrg(updated);
     if(!ok){alert("Erro ao salvar configurações.");return;}
     const u={...orgs,[org.id]:updated};setOrgs(u);setOrg(updated);setCfg(updated);
+    // Recarregar forms se tipo de org mudou (para atualizar linguagem)
+    const orgTypeChanged = cfg.orgType !== org.orgType;
+    if(orgTypeChanged || !forms.length){
+      const f = await loadForms(updated.id, updated.orgType);
+      setForms(f);
+    }
     alert("Configurações salvas!");
   }
   async function saveFormsBtn(){await saveForms2(org.id,forms);alert("Formulários salvos!");}
@@ -1961,7 +1967,7 @@ export default function App(){
     // Checkout Plano Personalizado via Stripe
     async function handleUpgradeCheckout(){
       try{
-        const res=await fetch("/api/create-checkout-custom",{
+        const res=await fetch("https://avalie360.conectandogente.com/api/create-checkout-custom",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({orgId:org.id,orgName:org.name,orgSlug:org.slug,adminEmail:org.resendFromEmail||"avalie360@conectandogente.com"})
@@ -2019,7 +2025,7 @@ export default function App(){
         {/* Banner informativo quando não tem plano */}
         {!canEdit&&(
           <div style={{background:"#fefce8",borderBottom:"1px solid #fde68a",padding:"12px 24px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-            <span style={{fontSize:13,color:"#92400e",flex:1}}>🔒 Você está no modo de <strong>visualização</strong>. As perguntas padrão são exibidas abaixo, mas não podem ser editadas. Para personalizar, contrate o Plano Personalizado.</span>
+            <span style={{fontSize:13,color:"#92400e",flex:1}}>🔒 Você está no modo de visualização das perguntas padrão do sistema. Para personalizá-las, elaborando suas próprias perguntas, contrate o Plano Personalizado.</span>
             <button onClick={()=>setShowUpgradeModal(true)} style={{padding:"7px 16px",borderRadius:8,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>Personalizar — R$300/ciclo</button>
           </div>
         )}
