@@ -1185,6 +1185,7 @@ export default function App(){
   const [editingOrg,setEditingOrg]=useState(null); // org being edited in super admin
   const [cfg,setCfg]=useState(null);
   const [showAdminPass,setShowAdminPass]=useState(false);
+  const [showUpgradeModal,setShowUpgradeModal]=useState(false);
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
   const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
   const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
@@ -1728,10 +1729,7 @@ export default function App(){
       <div style={{background:pc,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 10px rgba(0,0,0,0.14)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={36}/><div><div style={{fontWeight:800,fontSize:15,letterSpacing:"-0.01em"}}>{org.name}</div><div style={{fontSize:11,opacity:0.8,marginTop:1}}>Painel administrativo · Avaliação 360°</div></div></div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {org.planCustom
-  ? <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
-  : <button onClick={()=>alert("Para personalizar os formulários, contrate o Plano Personalizado por R$300/ciclo. Entre em contato: avalie360@conectandogente.com ou WhatsApp (11) 98609-6470.")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"rgba(255,255,255,0.5)",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.06)"}}>🔒 Formulários</button>
-}
+          <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
           <button onClick={()=>setScreen("avaliados")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Avaliados</button>
           <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🔑 Usuários</button>
           <button onClick={()=>setScreen("settings")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>⚙️ Config</button>
@@ -1874,7 +1872,7 @@ export default function App(){
         </div>
         <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🏛️ Tipo de organização</h3>
-          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Define o vocabulário e os formulários da avaliação. Organizações religiosas mantêm termos como "ministério" e "vida espiritual". Não-religiosas usam linguagem profissional adaptada.</p>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>A diferença fundamental entre esses dois modelos é a linguagem mais adequada para cada tipo de organização.</p>
           <div style={{display:"flex",gap:12}}>
             {[{id:"religiosa",label:"⛪ Religiosa",desc:"Igrejas, missões, equipes ministeriais"},{id:"nao_religiosa",label:"🏢 Não-religiosa",desc:"Empresas, ONGs, escolas, equipes seculares"}].map(op=>{
               const active=(cfg.orgType||"religiosa")===op.id;
@@ -1957,13 +1955,75 @@ export default function App(){
 
   if(screen==="editor"&&org){
     const eF=forms[efi];const eB=eF?.blocos[ebi];
+    const canEdit=org.planCustom||false;
     const sBtn=(active)=>({display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:10,border:"none",background:active?`${pc}18`:"transparent",color:active?pc:"#64748b",fontWeight:active?700:400,cursor:"pointer",fontSize:13,marginBottom:3});
+
+    // Checkout Plano Personalizado via Stripe
+    async function handleUpgradeCheckout(){
+      try{
+        const res=await fetch("/api/create-checkout-custom",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({orgId:org.id,orgName:org.name,orgSlug:org.slug,adminEmail:org.resendFromEmail||"avalie360@conectandogente.com"})
+        });
+        if(!res.ok) throw new Error("Erro ao criar sessão");
+        const {sessionId}=await res.json();
+        const stripe=window.Stripe("pk_test_51TbHfIFrTWjKL1SAZrYK9dwBGGngTv6ydLQD8aPhZow20ljsxQECrlkhh8Suyh3r1ofxltOSQTe0HTCksk4GCmci00t853urnz");
+        await stripe.redirectToCheckout({sessionId});
+      }catch(e){alert("Erro ao processar. Entre em contato: avalie360@conectandogente.com");}
+    }
+
     return(
       <div style={{minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        {/* Modal de upgrade */}
+        {showUpgradeModal&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.6)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+            <div style={{background:"#fff",borderRadius:20,padding:32,maxWidth:460,width:"100%",boxShadow:"0 24px 60px rgba(0,0,0,0.2)",position:"relative"}}>
+              <button onClick={()=>setShowUpgradeModal(false)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#94a3b8"}}>✕</button>
+              <div style={{textAlign:"center",marginBottom:24}}>
+                <div style={{fontSize:40,marginBottom:12}}>✏️</div>
+                <h2 style={{fontSize:20,fontWeight:800,color:"#0f172a",marginBottom:8}}>Plano Personalizado</h2>
+                <p style={{fontSize:14,color:"#64748b",lineHeight:1.65}}>Edite, adicione e remova perguntas dos seus formulários. A personalização fica ativa para todos os ciclos futuros desta organização.</p>
+              </div>
+              <div style={{background:"#eff6ff",borderRadius:14,padding:"16px 20px",marginBottom:20,textAlign:"center"}}>
+                <div style={{fontSize:36,fontWeight:800,color:"#2563eb",fontFamily:"serif"}}>R$300</div>
+                <div style={{fontSize:13,color:"#64748b",marginTop:4}}>taxa única · por ciclo de avaliação</div>
+              </div>
+              <ul style={{listStyle:"none",marginBottom:20,display:"flex",flexDirection:"column",gap:8}}>
+                {["Edição completa de todas as perguntas","Adicionar e remover blocos","Personalização mantida em ciclos futuros","Ativação automática após pagamento"].map(f=>(
+                  <li key={f} style={{display:"flex",alignItems:"center",gap:8,fontSize:14,color:"#334155"}}>
+                    <span style={{color:"#059669",fontWeight:700}}>✓</span>{f}
+                  </li>
+                ))}
+              </ul>
+              <button onClick={handleUpgradeCheckout} style={{width:"100%",padding:"14px",background:"#2563eb",color:"white",border:"none",borderRadius:12,fontFamily:"'Segoe UI',sans-serif",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                💳 Pagar R$300 e personalizar →
+              </button>
+              <p style={{textAlign:"center",fontSize:12,color:"#94a3b8",marginTop:12}}>🔒 Pagamento seguro via Stripe · PIX ou cartão</p>
+            </div>
+          </div>
+        )}
+
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
-          <div><div style={{fontWeight:800,fontSize:15}}>✏️ Editor de Formulários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Alterações afetam apenas novos preenchimentos</div></div>
-          <div style={{display:"flex",gap:8}}><button onClick={saveFormsBtn} style={{...hBtn,background:"#16a34a",fontWeight:700}}>💾 Salvar</button><button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Links</button></div>
+          <div>
+            <div style={{fontWeight:800,fontSize:15}}>✏️ Formulários — {org.name}</div>
+            <div style={{fontSize:11,opacity:0.75}}>{canEdit?"Modo edição ativo":"Visualização — perguntas protegidas"}</div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            {canEdit&&<button onClick={saveFormsBtn} style={{...hBtn,background:"#16a34a",fontWeight:700}}>💾 Salvar</button>}
+            {!canEdit&&<button onClick={()=>setShowUpgradeModal(true)} style={{...hBtn,background:"#f59e0b",color:"#fff",fontWeight:700}}>✏️ Personalizar perguntas</button>}
+            <button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Voltar</button>
+          </div>
         </div>
+
+        {/* Banner informativo quando não tem plano */}
+        {!canEdit&&(
+          <div style={{background:"#fefce8",borderBottom:"1px solid #fde68a",padding:"12px 24px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <span style={{fontSize:13,color:"#92400e",flex:1}}>🔒 Você está no modo de <strong>visualização</strong>. As perguntas padrão são exibidas abaixo, mas não podem ser editadas. Para personalizar, contrate o Plano Personalizado.</span>
+            <button onClick={()=>setShowUpgradeModal(true)} style={{padding:"7px 16px",borderRadius:8,border:"none",background:"#f59e0b",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>Personalizar — R$300/ciclo</button>
+          </div>
+        )}
+
         <div style={{maxWidth:1100,margin:"0 auto",padding:"20px 16px 60px",display:"flex",gap:20}}>
           <div style={{width:240,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
             <div style={{background:"#fff",borderRadius:16,padding:12,border:"1px solid #dbeafe"}}>
@@ -1976,30 +2036,45 @@ export default function App(){
             </div>}
           </div>
           {eB&&<div style={{flex:1,display:"flex",flexDirection:"column",gap:16}}>
-            <div style={{background:"#fff",borderRadius:16,padding:20,border:"1px solid #dbeafe"}}><p style={{fontSize:11,fontWeight:700,color:pc,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Título do bloco</p><input value={eB.title} onChange={e=>updBT(efi,ebi,e.target.value)} style={inp}/></div>
+            {/* Título do bloco */}
+            <div style={{background:"#fff",borderRadius:16,padding:20,border:"1px solid #dbeafe"}}>
+              <p style={{fontSize:11,fontWeight:700,color:pc,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Título do bloco</p>
+              {canEdit
+                ? <input value={eB.title} onChange={e=>updBT(efi,ebi,e.target.value)} style={inp}/>
+                : <div style={{padding:"10px 14px",background:"#f8faff",borderRadius:8,fontSize:14,color:"#334155",border:"1px solid #e2e8f0"}}>{eB.title}</div>
+              }
+            </div>
+            {/* Perguntas escala */}
             <div style={{background:"#fff",borderRadius:16,padding:20,border:"1px solid #dbeafe"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                 <div><p style={{fontSize:11,fontWeight:700,color:pc,textTransform:"uppercase",letterSpacing:1,margin:0}}>Perguntas com escala 1–5</p><p style={{fontSize:11,color:"#94a3b8",margin:"3px 0 0"}}>{eB.perguntas.length} pergunta{eB.perguntas.length!==1?"s":""}</p></div>
-                <button onClick={()=>addQ(efi,ebi)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#d1fae5",color:"#065f46",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Adicionar</button>
+                {canEdit&&<button onClick={()=>addQ(efi,ebi)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#d1fae5",color:"#065f46",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Adicionar</button>}
               </div>
               {eB.perguntas.map((p,i)=>(
                 <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:10}}>
                   <span style={{fontSize:12,color:"#94a3b8",fontWeight:700,minWidth:22,paddingTop:10}}>{i+1}.</span>
-                  <textarea value={p} rows={2} onChange={e=>updQ(efi,ebi,i,e.target.value)} style={{...inp,resize:"vertical",flex:1}}/>
-                  <button onClick={()=>delQ(efi,ebi,i)} style={{padding:"6px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:13,marginTop:4}}>🗑️</button>
+                  {canEdit
+                    ? <><textarea value={p} rows={2} onChange={e=>updQ(efi,ebi,i,e.target.value)} style={{...inp,resize:"vertical",flex:1}}/>
+                        <button onClick={()=>delQ(efi,ebi,i)} style={{padding:"6px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:13,marginTop:4}}>🗑️</button></>
+                    : <div style={{flex:1,padding:"10px 14px",background:"#f8faff",borderRadius:8,fontSize:14,color:"#334155",border:"1px solid #e2e8f0",lineHeight:1.5}}>{p}</div>
+                  }
                 </div>
               ))}
             </div>
+            {/* Perguntas abertas */}
             <div style={{background:"#fff",borderRadius:16,padding:20,border:"1px solid #fde68a"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                 <div><p style={{fontSize:11,fontWeight:700,color:"#d97706",textTransform:"uppercase",letterSpacing:1,margin:0}}>Perguntas abertas / reflexões</p><p style={{fontSize:11,color:"#94a3b8",margin:"3px 0 0"}}>{eB.abertas.length} pergunta{eB.abertas.length!==1?"s":""}</p></div>
-                <button onClick={()=>addAb(efi,ebi)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#d1fae5",color:"#065f46",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Adicionar</button>
+                {canEdit&&<button onClick={()=>addAb(efi,ebi)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#d1fae5",color:"#065f46",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Adicionar</button>}
               </div>
               {eB.abertas.map((a,i)=>(
                 <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:10}}>
                   <span style={{fontSize:12,color:"#94a3b8",fontWeight:700,minWidth:22,paddingTop:10}}>{i+1}.</span>
-                  <textarea value={a} rows={2} onChange={e=>updAb(efi,ebi,i,e.target.value)} style={{...inp,resize:"vertical",flex:1,borderColor:"#fde68a"}}/>
-                  <button onClick={()=>delAb(efi,ebi,i)} style={{padding:"6px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:13,marginTop:4}}>🗑️</button>
+                  {canEdit
+                    ? <><textarea value={a} rows={2} onChange={e=>updAb(efi,ebi,i,e.target.value)} style={{...inp,resize:"vertical",flex:1,borderColor:"#fde68a"}}/>
+                        <button onClick={()=>delAb(efi,ebi,i)} style={{padding:"6px 10px",borderRadius:8,border:"none",background:"#fee2e2",color:"#dc2626",cursor:"pointer",fontSize:13,marginTop:4}}>🗑️</button></>
+                    : <div style={{flex:1,padding:"10px 14px",background:"#fffbeb",borderRadius:8,fontSize:14,color:"#334155",border:"1px solid #fde68a",lineHeight:1.5}}>{a}</div>
+                  }
                 </div>
               ))}
             </div>
