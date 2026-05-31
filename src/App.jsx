@@ -46,6 +46,118 @@ function gerarCiclos(){const ano=new Date().getFullYear();const inicio=Math.max(
 const CICLOS=gerarCiclos();
 const LGPD = "Suas respostas são completamente anônimas. Nenhum dado pessoal identificável é coletado. Os administradores do sistema visualizam apenas resultados agregados, sem identificação de quem respondeu. Os dados são utilizados exclusivamente para fins de desenvolvimento organizacional interno, conforme a LGPD (Lei nº 13.709/2018). Você pode interromper o preenchimento a qualquer momento.";
 
+
+// ─── FORMULÁRIOS ADAPTATIVOS POR TIPO DE ORGANIZAÇÃO ─────────────────
+function getDefaultFormsForOrg(orgType) {
+  const isReligiosa = !orgType || orgType === "religiosa";
+  // Bloco de espiritualidade/propósito — varia por tipo
+  const blocoEspiritual = isReligiosa
+    ? { id:"espiritualidade", title:"Vida espiritual e coerência", icon:"✝️",
+        perguntas:[
+          "Tenho sido fiel nas minhas práticas devocionais.",
+          "Tenho sido coerente com minhas palavras e ações.",
+          "Tenho reagido a críticas e correções com humildade.",
+          "Tenho buscado a vontade de Deus para minhas decisões.",
+          "Minha prática ministerial tem refletido os objetivos que defini no meu planejamento anual.",
+        ],
+        abertas:["Em quais áreas você percebe maior crescimento espiritual no último período?","Em quais áreas sente maior fragilidade atualmente?"]}
+    : { id:"espiritualidade", title:"Propósito e valores pessoais", icon:"🧭",
+        perguntas:[
+          "Tenho agido de forma coerente com meus valores pessoais.",
+          "Tenho sido honesto e íntegro nas minhas decisões.",
+          "Tenho reagido a críticas e correções com humildade.",
+          "Tenho buscado clareza sobre meu propósito e direção de vida.",
+          "Minha prática tem refletido os objetivos que defini no meu descritivo de função.",
+        ],
+        abertas:["Em quais áreas você percebe maior crescimento pessoal no último período?","Em quais áreas sente maior fragilidade atualmente?"]};
+
+  // Bloco impacto — varia por tipo
+  const blocoImpacto = isReligiosa
+    ? { id:"impacto", title:"Impacto e resultados", icon:"🌱",
+        perguntas:[
+          "Tenho produzido impacto positivo nas pessoas ao meu redor.",
+          "Tenho desenvolvido outras pessoas e multiplicado meu ministério.",
+          "Tenho alcançado as metas estabelecidas no meu planejamento ministerial.",
+          "Tenho desenvolvido novas habilidades.",
+        ],
+        abertas:["Onde você percebe maior fruto atualmente?","Onde gostaria de crescer no próximo ciclo?"]}
+    : { id:"impacto", title:"Impacto e resultados", icon:"🌱",
+        perguntas:[
+          "Tenho produzido impacto positivo nas pessoas ao meu redor.",
+          "Tenho desenvolvido outras pessoas para fazerem o que eu faço.",
+          "Tenho alcançado as metas estabelecidas no meu descritivo de função.",
+          "Tenho desenvolvido novas habilidades.",
+        ],
+        abertas:["Onde você percebe maiores resultados atualmente?","Onde gostaria de crescer no próximo ciclo?"]};
+
+  // Saúde emocional — varia por tipo
+  const blocoSaudeEmocional = isReligiosa
+    ? { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
+        perguntas:[
+          "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
+          "Tenho percebido equilíbrio entre ministério, vida pessoal e familiar.",
+          "Tenho conseguido pedir ajuda quando necessário.",
+          "Tenho chegado às minhas atividades ministeriais com disposição e motivação.",
+          "Tenho percebido sinais de desgaste emocional em mim.",
+          "Tenho conseguido estabelecer limites saudáveis.",
+        ],
+        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?","Existe alguma área em que você sente necessidade de maior cuidado ou apoio?"]}
+    : { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
+        perguntas:[
+          "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
+          "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
+          "Tenho conseguido pedir ajuda quando necessário.",
+          "Tenho chegado às minhas atividades com disposição e motivação.",
+          "Tenho percebido sinais de desgaste emocional em mim.",
+          "Tenho conseguido estabelecer limites saudáveis.",
+        ],
+        abertas:["Quais são hoje suas maiores fontes de desgaste?","O que mais tem fortalecido você emocionalmente?","Existe alguma área em que você sente necessidade de maior cuidado ou apoio?"]};
+
+  return [
+    { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
+      blocos:[
+        blocoEspiritual,
+        blocoSaudeEmocional,
+        { id:"relacionamentos", title:"Relacionamentos e equipe", icon:"🤝",
+          perguntas:[
+            "Tenho contribuído para que meus ambientes sejam saudáveis.",
+            "Tenho escutado opiniões diferentes sem defensividade.",
+            "Tenho lidado bem com conflitos.",
+            "Tenho sido acessível e respeitoso nas relações.",
+            "Tenho colaborado com minha(s) equipe(s) de trabalho.",
+          ],
+          abertas:["O que você acredita que mais fortalece suas relações?","Onde você acredita que precisa amadurecer relacionalmente?"]},
+        { id:"comunicacao", title:"Comunicação", icon:"💬",
+          perguntas:[
+            "Tenho me comunicado com clareza.",
+            "Tenho dado feedbacks respeitosos e honestos.",
+            "Tenho escutado atentamente as pessoas.",
+            "Tenho comunicado expectativas de maneira saudável.",
+          ],
+          abertas:["Em quais situações sua comunicação funciona melhor?","O que você deseja desenvolver na sua comunicação?"]},
+        { id:"alinhamento", title:"Alinhamento e cultura", icon:"⛵",
+          perguntas:[
+            "Tenho representado bem os valores da organização.",
+            "Tenho contribuído para a unidade da organização.",
+            "Tenho fortalecido a cultura de cuidado e cooperação.",
+            "Tenho mantido alinhamento com a liderança e suas diretrizes.",
+            "Tenho colaborado para o desenvolvimento da organização.",
+          ],
+          abertas:["O que mais conecta você ao propósito da organização?","O que hoje dificulta seu alinhamento ou engajamento?"]},
+        blocoImpacto,
+        { id:"saude_integral_auto", title:"Saúde integral", icon:"💚",
+          perguntas:[
+            "Minhas relações familiares estão saudáveis.",
+            "Tenho descansado adequadamente.",
+            "Tenho mantido regularidade nos exercícios físicos.",
+            "Tenho cuidado da minha alimentação.",
+            "Tenho lidado bem com minhas frustrações.",
+          ],
+          abertas:[]},
+      ]},
+  ];
+}
+
 const DEFAULT_FORMS = [
   { id:"autoavaliacao", title:"Autoavaliação", icon:"🪞", subtitle:"Um espaço honesto e seguro para olhar para si mesmo",
     blocos:[
@@ -55,8 +167,8 @@ const DEFAULT_FORMS = [
           "Tenho sido coerente com minhas palavras e ações.",
           "Tenho reagido a críticas e correções com humildade.",
           "Tenho buscado a vontade de Deus para minhas decisões.",
-          "Minha prática tem refletido os objetivos que defini no meu plano de trabalho.",
-          "Tenho conseguido me manter humilde diante dos sucessos pessoais e profissionais.",
+          "Minha prática ministerial tem refletido os objetivos que defini no meu planejamento anual.",
+          "Tenho conseguido me manter humilde diante dos sucessos pessoais e ministeriais.",
         ],
         abertas:["Em quais áreas você percebe maior crescimento espiritual no último período?","Em quais áreas sente maior fragilidade atualmente?"]},
       { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
@@ -64,7 +176,7 @@ const DEFAULT_FORMS = [
           "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
           "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
           "Tenho conseguido pedir ajuda quando necessário.",
-          "Tenho chegado às minhas atividades com disposição e motivação.",
+          "Tenho chegado às minhas atividades ministeriais com disposição e motivação.",
           "Tenho percebido sinais de desgaste emocional em mim.",
           "Tenho conseguido estabelecer limites saudáveis.",
         ],
@@ -98,11 +210,11 @@ const DEFAULT_FORMS = [
       { id:"impacto", title:"Impacto e resultados", icon:"🌱",
         perguntas:[
           "Tenho produzido impacto positivo nas pessoas ao meu redor.",
-          "Tenho desenvolvido outras pessoas para fazerem o que eu faço.",
-          "Tenho alcançado as metas estabelecidas no meu plano de trabalho.",
+          "Tenho desenvolvido outras pessoas e multiplicado meu ministério.",
+          "Tenho alcançado as metas estabelecidas no meu planejamento ministerial.",
           "Tenho desenvolvido novas habilidades.",
         ],
-        abertas:["Onde você percebe maiores resultados atualmente?","Onde gostaria de crescer no próximo ciclo?"]},
+        abertas:["Onde você percebe maior fruto atualmente?","Onde gostaria de crescer no próximo ciclo?"]},
       { id:"saude_integral_auto", title:"Saúde integral", icon:"💚",
         perguntas:[
           "Minhas relações familiares estão saudáveis.",
@@ -273,7 +385,7 @@ const DEFAULT_FORMS_NEUTRO = [
           "Tenho reagido a críticas e correções com humildade.",
           "Tenho buscado agir de acordo com os valores da organização.",
           "Minha atuação profissional tem refletido os objetivos definidos no meu planejamento.",
-          "Tenho conseguido me manter humilde diante dos sucessos pessoais e profissionais.",
+          "Tenho conseguido me manter humilde diante dos sucessos pessoais e ministeriais.",
         ],
         abertas:["Em quais áreas você percebe maior crescimento no último período?","Em quais áreas sente maior fragilidade atualmente?"]},
       { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
@@ -282,7 +394,7 @@ const DEFAULT_FORMS_NEUTRO = [
           "Tenho conseguido descansar adequadamente.",
           "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
           "Tenho conseguido pedir ajuda quando necessário.",
-          "Tenho chegado às minhas atividades com disposição e motivação.",
+          "Tenho chegado às minhas atividades ministeriais com disposição e motivação.",
           "Tenho percebido sinais de desgaste emocional em mim.",
           "Tenho conseguido estabelecer limites saudáveis.",
         ],
@@ -357,7 +469,7 @@ const DEFAULT_FORMS_NEUTRO = [
       { id:"aprendizado", title:"Desenvolvimento e aprendizado", icon:"🌱",
         perguntas:["Demonstra disposição para aprender.","Recebe orientações e críticas com maturidade.","Busca desenvolvimento pessoal.","Demonstra adaptabilidade."], abertas:[]},
       { id:"sustentabilidade", title:"Saúde e sustentabilidade", icon:"💙",
-        perguntas:["Administra adequadamente as pressões.","Mantém limites saudáveis.","Demonstra equilíbrio em sua vida pessoal e material.","Demonstra boa disposição física.","Sabe pedir ajuda quando necessário."],
+        perguntas:["Administra adequadamente as pressões.","Mantém limites saudáveis.","Demonstra equilíbrio em sua vida econômica e material.","Demonstra boa disposição física.","Sabe pedir ajuda quando necessário."],
         abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"maturidade_lid", title:"Maturidade emocional", icon:"💜",
         perguntas:["Demonstra equilíbrio emocional diante das pressões.","Reage de forma madura a frustrações.","Demonstra segurança sem arrogância.","Assume erros quando necessário.","Recebe correções sem defensividade excessiva."], abertas:[]},
@@ -419,6 +531,8 @@ async function loadOrgs() {
         yesnoLabels: r.yesno_labels || DEFAULT_YESNO_LABELS,
         slug: r.slug || "",
         createdAt: r.created_at,
+        orgType: r.org_type || "religiosa",
+        planCustom: r.plan_custom || false,
       };
     });
     return orgs;
@@ -445,6 +559,8 @@ async function upsertOrg(org) {
         scale_model: org.scaleModel || "frequencia",
         slug: org.slug || "",
         yesno_labels: org.yesnoLabels || DEFAULT_YESNO_LABELS,
+        org_type: org.orgType || "religiosa",
+        plan_custom: org.planCustom || false,
         created_at: org.createdAt || new Date().toISOString(),
       }),
     });
@@ -490,12 +606,19 @@ async function saveResp(orgId, entry) {
   } catch(e) { console.error("saveResp:", e); return false; }
 }
 
-async function loadForms(orgId) {
+async function loadForms(orgId, orgType) {
   try {
     const rows = await sbFetch(`org_forms?org_id=eq.${orgId}&select=forms_data&limit=1`);
     if (rows && rows.length > 0) return rows[0].forms_data;
-    return JSON.parse(JSON.stringify(DEFAULT_FORMS));
-  } catch(e) { return JSON.parse(JSON.stringify(DEFAULT_FORMS)); }
+    // Retorna forms adaptados ao tipo de org
+    const baseAuto = getDefaultFormsForOrg(orgType);
+    const outros = DEFAULT_FORMS.filter(f => f.id !== "autoavaliacao");
+    return JSON.parse(JSON.stringify([...baseAuto, ...outros]));
+  } catch(e) {
+    const baseAuto = getDefaultFormsForOrg(orgType);
+    const outros = DEFAULT_FORMS.filter(f => f.id !== "autoavaliacao");
+    return JSON.parse(JSON.stringify([...baseAuto, ...outros]));
+  }
 }
 
 async function saveForms2(orgId, forms) {
@@ -1122,7 +1245,7 @@ export default function App(){
         const orgData = await loadOrgBySlug(pathParts[0]);
         if(orgData) {
           setOrg(orgData);
-          const f = await loadForms(orgData.id);
+          const f = await loadForms(orgData.id, orgData.orgType);
           setForms(f);
           const sm1 = orgData.scaleModel||"frequencia";
           setScaleModel(sm1);
@@ -1310,7 +1433,7 @@ export default function App(){
   async function loginOrg(o){
     if(orgP===o.adminPassword){
       setOrgE(false);setOrg(o);
-      const f=await loadForms(o.id);const r=await loadResps(o.id);
+      const f=await loadForms(o.id,o.orgType);const r=await loadResps(o.id);
       const cl=await loadCustomLinks2(o.id);
       const sl=o.scaleLabels||DEFAULT_SCALE_LABELS;
       const sm=o.scaleModel||"frequencia";
@@ -1353,7 +1476,7 @@ export default function App(){
     const u = await loginUsuario(org.id, loginEmail.trim(), loginSenha);
     if(!u){setLoginErr("Email ou senha incorretos.");return;}
     setUsuarioLogado(u);
-    const f = await loadForms(org.id);
+    const f = await loadForms(org.id, org.orgType);
     setForms(f);
     const smU = org.scaleModel||"frequencia";
     setScaleModel(smU);
@@ -1515,6 +1638,13 @@ export default function App(){
                         <input value={editingOrg.name} onChange={e=>setEditingOrg(p=>({...p,name:e.target.value}))} style={inp}/>
                       </div>
                       <div>
+                        <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>PLANO PERSONALIZADO (formulários editáveis)</label>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                          <input type="checkbox" id="planCustom" checked={editingOrg.planCustom||false} onChange={e=>setEditingOrg(p=>({...p,planCustom:e.target.checked}))} style={{width:16,height:16,cursor:"pointer"}}/>
+                          <label htmlFor="planCustom" style={{fontSize:13,color:"#334155",cursor:"pointer"}}>
+                            {editingOrg.planCustom ? "✅ Ativo — org pode editar formulários (R$300/ciclo pago)" : "🔒 Inativo — formulários bloqueados para edição"}
+                          </label>
+                        </div>
                         <label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOVA SENHA DO ADMIN</label>
                         <input type="password" value={editingOrg.adminPassword||""} onChange={e=>setEditingOrg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Deixe em branco para manter"/>
                       </div>
@@ -1598,7 +1728,10 @@ export default function App(){
       <div style={{background:pc,color:"#fff",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 10px rgba(0,0,0,0.14)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}><OrgLogo org={org} size={36}/><div><div style={{fontWeight:800,fontSize:15,letterSpacing:"-0.01em"}}>{org.name}</div><div style={{fontSize:11,opacity:0.8,marginTop:1}}>Painel administrativo · Avaliação 360°</div></div></div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
+          {org.planCustom
+  ? <button onClick={()=>setScreen("editor")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>✏️ Formulários</button>
+  : <button onClick={()=>alert("Para personalizar os formulários, contrate o Plano Personalizado por R$300/ciclo. Entre em contato: avalie360@conectandogente.com ou WhatsApp (11) 98609-6470.")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"rgba(255,255,255,0.5)",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.06)"}}>🔒 Formulários</button>
+}
           <button onClick={()=>setScreen("avaliados")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>👥 Avaliados</button>
           <button onClick={async()=>{const u=await loadUsuarios(org.id);setUsuarios(u);setScreen("usuarios");}} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>🔑 Usuários</button>
           <button onClick={()=>setScreen("settings")} style={{border:"1.5px solid rgba(255,255,255,0.28)",color:"#fff",borderRadius:R.sm,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.12)"}}>⚙️ Config</button>
@@ -1740,6 +1873,22 @@ export default function App(){
           <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"12px 20px",fontSize:14}}>💾 Salvar configurações</button>
         </div>
         <div style={{...card,marginBottom:16}}>
+          <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🏛️ Tipo de organização</h3>
+          <p style={{fontSize:12,color:"#64748b",marginBottom:16,lineHeight:1.6}}>Define o vocabulário e os formulários da avaliação. Organizações religiosas mantêm termos como "ministério" e "vida espiritual". Não-religiosas usam linguagem profissional adaptada.</p>
+          <div style={{display:"flex",gap:12}}>
+            {[{id:"religiosa",label:"⛪ Religiosa",desc:"Igrejas, missões, equipes ministeriais"},{id:"nao_religiosa",label:"🏢 Não-religiosa",desc:"Empresas, ONGs, escolas, equipes seculares"}].map(op=>{
+              const active=(cfg.orgType||"religiosa")===op.id;
+              return(
+                <div key={op.id} onClick={()=>setCfg(p=>({...p,orgType:op.id}))}
+                  style={{flex:1,borderRadius:R.lg,border:`2px solid ${active?pc:"#e2e8f0"}`,background:active?"#eff6ff":"#fff",padding:"14px 16px",cursor:"pointer",transition:"all 0.18s"}}>
+                  <div style={{fontWeight:700,fontSize:14,color:active?"#1e3a8a":"#334155",marginBottom:4}}>{op.label}</div>
+                  <div style={{fontSize:12,color:"#64748b"}}>{op.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15,fontWeight:700}}>🔢 Estilo de avaliação</h3>
           <p style={{fontSize:12,color:"#64748b",marginBottom:20,lineHeight:1.6}}>Escolha como os colaboradores vão responder as perguntas. Em todos os modelos existe a opção <strong>"Não sei avaliar"</strong> — que nunca entra no cálculo.</p>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -1800,6 +1949,7 @@ export default function App(){
           </button>
         </div>
         <div style={{...card,background:"#f0fdf4",border:"1px solid #bbf7d0"}}><h3 style={{color:"#166534",marginBottom:10,fontSize:14}}>🔒 LGPD — Conformidade</h3><p style={{fontSize:12,color:"#166534",lineHeight:1.7,margin:0}}>{LGPD}</p></div>
+        <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"14px 20px",fontSize:15,marginTop:8}}>💾 Salvar configurações</button>
       </div>
       <PoweredBy/>
     </div>
@@ -1822,7 +1972,7 @@ export default function App(){
             </div>
             {eF&&<div style={{background:"#fff",borderRadius:16,padding:12,border:"1px solid #dbeafe"}}>
               <p style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Blocos</p>
-              {eF.blocos.map((b,i)=><button key={b.id} onClick={()=>setEbi(i)} style={sBtn(ebi===i)}>{b.icon} {b.title}}</button>)}
+              {eF.blocos.map((b,i)=><button key={b.id} onClick={()=>setEbi(i)} style={sBtn(ebi===i)}>{b.icon} {b.title}</button>)}
             </div>}
           </div>
           {eB&&<div style={{flex:1,display:"flex",flexDirection:"column",gap:16}}>
