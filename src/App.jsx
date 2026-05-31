@@ -1973,10 +1973,23 @@ export default function App(){
           body:JSON.stringify({orgId:org.id,orgName:org.name,orgSlug:org.slug,adminEmail:org.resendFromEmail||"avalie360@conectandogente.com"})
         });
         if(!res.ok) throw new Error("Erro ao criar sessão");
-        const {sessionId}=await res.json();
-        const stripe=window.Stripe("pk_test_51TbHfIFrTWjKL1SAZrYK9dwBGGngTv6ydLQD8aPhZow20ljsxQECrlkhh8Suyh3r1ofxltOSQTe0HTCksk4GCmci00t853urnz");
+        const {sessionId,url}=await res.json();
+        // Se a API retornou URL direta, redirecionar diretamente
+        if(url){ window.location.href=url; return; }
+        // Caso contrário, carregar Stripe dinamicamente
+        let stripeJs=window.Stripe;
+        if(!stripeJs){
+          await new Promise((resolve,reject)=>{
+            const s=document.createElement("script");
+            s.src="https://js.stripe.com/v3/";
+            s.onload=resolve; s.onerror=reject;
+            document.head.appendChild(s);
+          });
+          stripeJs=window.Stripe;
+        }
+        const stripe=stripeJs("pk_test_51TbHfIFrTWjKL1SAZrYK9dwBGGngTv6ydLQD8aPhZow20ljsxQECrlkhh8Suyh3r1ofxltOSQTe0HTCksk4GCmci00t853urnz");
         await stripe.redirectToCheckout({sessionId});
-      }catch(e){alert("Erro ao processar. Entre em contato: avalie360@conectandogente.com");}
+      }catch(e){console.error(e);alert("Erro ao processar. Entre em contato: avalie360@conectandogente.com");}
     }
 
     return(
