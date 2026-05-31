@@ -55,17 +55,16 @@ const DEFAULT_FORMS = [
           "Tenho sido coerente com minhas palavras e ações.",
           "Tenho reagido a críticas e correções com humildade.",
           "Tenho buscado a vontade de Deus para minhas decisões.",
-          "Minha prática ministerial tem refletido os objetivos que defini no meu planejamento anual.",
-          "Tenho conseguido me manter humilde diante dos sucessos pessoais e ministeriais.",
+          "Minha prática tem refletido os objetivos que defini no meu plano de trabalho.",
+          "Tenho conseguido me manter humilde diante dos sucessos pessoais e profissionais.",
         ],
         abertas:["Em quais áreas você percebe maior crescimento espiritual no último período?","Em quais áreas sente maior fragilidade atualmente?"]},
       { id:"saude_emocional", title:"Saúde emocional", icon:"💙",
         perguntas:[
           "Tenho conseguido lidar de forma saudável com pressões e frustrações.",
-          "Tenho conseguido descansar adequadamente.",
-          "Tenho percebido equilíbrio entre ministério, vida pessoal e familiar.",
+          "Tenho percebido equilíbrio entre trabalho, vida pessoal e familiar.",
           "Tenho conseguido pedir ajuda quando necessário.",
-          "Tenho chegado às minhas atividades ministeriais com disposição e motivação.",
+          "Tenho chegado às minhas atividades com disposição e motivação.",
           "Tenho percebido sinais de desgaste emocional em mim.",
           "Tenho conseguido estabelecer limites saudáveis.",
         ],
@@ -99,15 +98,17 @@ const DEFAULT_FORMS = [
       { id:"impacto", title:"Impacto e resultados", icon:"🌱",
         perguntas:[
           "Tenho produzido impacto positivo nas pessoas ao meu redor.",
-          "Tenho desenvolvido outras pessoas e multiplicado meu ministério.",
-          "Tenho alcançado as metas estabelecidas no meu planejamento ministerial.",
+          "Tenho desenvolvido outras pessoas para fazerem o que eu faço.",
+          "Tenho alcançado as metas estabelecidas no meu plano de trabalho.",
           "Tenho desenvolvido novas habilidades.",
         ],
-        abertas:["Onde você percebe maior fruto atualmente?","Onde gostaria de crescer no próximo ciclo?"]},
+        abertas:["Onde você percebe maiores resultados atualmente?","Onde gostaria de crescer no próximo ciclo?"]},
       { id:"saude_integral_auto", title:"Saúde integral", icon:"💚",
         perguntas:[
           "Minhas relações familiares estão saudáveis.",
           "Tenho descansado adequadamente.",
+          "Tenho mantido regularidade nos exercícios físicos.",
+          "Tenho cuidado da minha alimentação.",
           "Tenho lidado bem com minhas frustrações.",
         ],
         abertas:[]},
@@ -155,6 +156,7 @@ const DEFAULT_FORMS = [
           "Demonstra abertura e vulnerabilidade saudável.",
           "Demonstra sinais saudáveis nas relações familiares.",
           "Demonstra sinais de descanso adequado.",
+          "Demonstra boa disposição física e cuidado com a saúde.",
           "Demonstra maturidade para lidar com frustrações.",
         ],
         abertas:[]},
@@ -342,7 +344,7 @@ const DEFAULT_FORMS_NEUTRO = [
         perguntas:["Representa bem os valores da organização.","Fortalece a unidade.","Demonstra compromisso com a organização.","Atua de forma coerente com a cultura onde está inserida."],
         abertas:["Algo que você deseja comentar acerca dessa pessoa, em relação a esse tema."]},
       { id:"saude_integral_par", title:"Saúde integral", icon:"💚",
-        perguntas:["Demonstra abertura e vulnerabilidade saudável.","Demonstra sinais saudáveis nas relações familiares.","Demonstra sinais de descanso adequado.","Demonstra maturidade para lidar com frustrações."],
+        perguntas:["Demonstra abertura e vulnerabilidade saudável.","Demonstra sinais saudáveis nas relações familiares.","Demonstra sinais de descanso adequado.","Demonstra boa disposição física e cuidado com a saúde.","Demonstra maturidade para lidar com frustrações."],
         abertas:[]},
       { id:"riscos_par", title:"Riscos e sinais preventivos", icon:"⚠️", scaleType:"yesno",
         perguntas:["Percebo sinais de sobrecarga.","Percebo sinais de isolamento.","Percebo sinais de desgaste emocional.","Percebo perda de motivação.","Percebo tensões relacionais recorrentes.","Essa pessoa se beneficiaria de um acompanhamento mais próximo neste momento."],
@@ -1059,6 +1061,7 @@ export default function App(){
   const [nOrg,setNOrg]=useState({name:"",adminPassword:"",primaryColor:"#2563eb",logoUrl:""});const [nOrgE,setNOrgE]=useState("");
   const [editingOrg,setEditingOrg]=useState(null); // org being edited in super admin
   const [cfg,setCfg]=useState(null);
+  const [showAdminPass,setShowAdminPass]=useState(false);
   const [customLinks,setCustomLinks]=useState([]);  // [{formId, label, id}]
   const [urlCustomLabel,setUrlCustomLabel]=useState(null); // custom title from URL link
   const [urlAvaliadoNome,setUrlAvaliadoNome]=useState(null); // avaliado name from URL
@@ -1732,7 +1735,7 @@ export default function App(){
             <input value={cfg.baseUrl||""} onChange={e=>setCfg(p=>({...p,baseUrl:e.target.value}))} style={inp} placeholder="Ex: https://360.suaorganizacao.com.br"/>
             <p style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Cole aqui o endereço onde o app está publicado. Isso corrige os links de compartilhamento.</p>
           </div>
-          <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOVA SENHA DO ADMINISTRADOR</label><input type="password" value={cfg.adminPassword||""} onChange={e=>setCfg(p=>({...p,adminPassword:e.target.value}))} style={inp} placeholder="Deixe em branco para não alterar"/></div>
+          <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:4}}>NOVA SENHA DO ADMINISTRADOR</label><div style={{position:"relative"}}><input type={showAdminPass?"text":"password"} value={cfg.adminPassword||""} onChange={e=>setCfg(p=>({...p,adminPassword:e.target.value}))} style={{...inp,paddingRight:40}} placeholder="Deixe em branco para não alterar"/><button type="button" onClick={()=>setShowAdminPass(p=>!p)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#94a3b8",padding:0}}>{showAdminPass?"🙈":"👁️"}</button></div></div>
           <div style={{marginBottom:20}}><label style={{fontSize:11,fontWeight:700,color:"#64748b",display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>Ciclo ativo</label><select value={cfg.activeCiclo||CICLOS[0]} onChange={e=>setCfg(p=>({...p,activeCiclo:e.target.value}))} style={{...inp}}>{CICLOS.map(c=><option key={c}>{c}</option>)}</select></div>
           <button onClick={saveCfg} style={{...btn(cfg.primaryColor||"#2563eb"),width:"100%",padding:"12px 20px",fontSize:14}}>💾 Salvar configurações</button>
         </div>
@@ -1780,7 +1783,7 @@ export default function App(){
         </div>
         <div style={{...card,marginBottom:16}}>
           <h3 style={{color:"#1e3a8a",marginBottom:4,fontSize:15}}>⚠️ Escala Sim/Não/Atenção</h3>
-          <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Usada nos blocos de "Riscos e sinais preventivos".</p>
+          <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Usada nos blocos de "Riscos e sinais preventivos" — onde os participantes podem expressar preocupação sobre o avaliado em alguma área específica, de forma sigilosa e construtiva.</p>
           <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"10px 12px",alignItems:"center"}}>
             {[1,2,0].map(v=>(
               <>
@@ -1804,22 +1807,22 @@ export default function App(){
 
   if(screen==="editor"&&org){
     const eF=forms[efi];const eB=eF?.blocos[ebi];
-    const sBtn=(active)=>({display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:10,border:"none",background:active?`${pc}18`:"transparent",color:active?pc:"#64748b",fontWeight:active?700:400,cursor:"pointer",fontSize:12,marginBottom:2});
+    const sBtn=(active)=>({display:"block",width:"100%",textAlign:"left",padding:"8px 10px",borderRadius:10,border:"none",background:active?`${pc}18`:"transparent",color:active?pc:"#64748b",fontWeight:active?700:400,cursor:"pointer",fontSize:13,marginBottom:3});
     return(
       <div style={{minHeight:"100vh",background:"#f8f9fa",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         <div style={{...hdr(pc),position:"sticky",top:0,zIndex:20}}>
           <div><div style={{fontWeight:800,fontSize:15}}>✏️ Editor de Formulários — {org.name}</div><div style={{fontSize:11,opacity:0.75}}>Alterações afetam apenas novos preenchimentos</div></div>
           <div style={{display:"flex",gap:8}}><button onClick={saveFormsBtn} style={{...hBtn,background:"#16a34a",fontWeight:700}}>💾 Salvar</button><button onClick={()=>setScreen("dash")} style={{...hBtn,border:"2px solid rgba(255,255,255,0.3)",background:"none"}}>← Links</button></div>
         </div>
-        <div style={{maxWidth:900,margin:"0 auto",padding:"20px 16px 60px",display:"flex",gap:16}}>
-          <div style={{width:172,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{maxWidth:1100,margin:"0 auto",padding:"20px 16px 60px",display:"flex",gap:20}}>
+          <div style={{width:240,flexShrink:0,display:"flex",flexDirection:"column",gap:12}}>
             <div style={{background:"#fff",borderRadius:16,padding:12,border:"1px solid #dbeafe"}}>
               <p style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Formulários</p>
               {forms.map((f,i)=><button key={f.id} onClick={()=>{setEfi(i);setEbi(0);}} style={sBtn(efi===i)}>{f.icon} {f.title}</button>)}
             </div>
             {eF&&<div style={{background:"#fff",borderRadius:16,padding:12,border:"1px solid #dbeafe"}}>
               <p style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Blocos</p>
-              {eF.blocos.map((b,i)=><button key={b.id} onClick={()=>setEbi(i)} style={sBtn(ebi===i)}>{b.icon} {b.title.slice(0,18)}{b.title.length>18?"…":""}</button>)}
+              {eF.blocos.map((b,i)=><button key={b.id} onClick={()=>setEbi(i)} style={sBtn(ebi===i)}>{b.icon} {b.title}}</button>)}
             </div>}
           </div>
           {eB&&<div style={{flex:1,display:"flex",flexDirection:"column",gap:16}}>
@@ -2364,7 +2367,8 @@ export default function App(){
               await saveUsuario(u);
               setUsuarios(p=>[...p,u]);
               setNewUsuario({nome:"",email:"",senha:""});
-            }} style={{...btn("#0891b2")}}>➕ Adicionar usuário</button>
+            }} style={{...btn("#0891b2"),marginRight:8}}>➕ Adicionar usuário</button>
+            <button onClick={()=>{setImportPreview(null);setImportDuplicatas([]);setImportDecisoes({});setImportFinalResult(null);setScreen("importar_usuarios");}} style={{...btn("#16a34a")}}>📥 Importar Excel</button>
           </div>
 
           {/* Users list */}
