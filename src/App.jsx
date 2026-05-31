@@ -1967,7 +1967,7 @@ export default function App(){
     // Checkout Plano Personalizado via Stripe
     async function handleUpgradeCheckout(){
       try{
-        const res=await fetch("https://avalie360.conectandogente.com/api/create-checkout-custom",{
+        const res=await fetch("/api/create-checkout-custom",{
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({orgId:org.id,orgName:org.name,orgSlug:org.slug,adminEmail:org.resendFromEmail||"avalie360@conectandogente.com"})
